@@ -16,6 +16,6 @@ def create_app():
     api = Api(app)
 
     # - map http routes to resources
-    api.add_resource(ProductResource, "/products", resource_class_args=(product_model,))
+    api.add_resource(ProductResource, "/products", "/products/<string:product_id>", resource_class_args=(product_model,))
 
     return app
