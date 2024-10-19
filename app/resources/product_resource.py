@@ -26,7 +26,7 @@ class ProductResource(Resource):
 
     def put(self, product_id):
         data = request.get_json()
-        mongo.db.products.update_one({"_id": product_id}, data)
+        # self.product_model.update_one({"_id": product_id}, data)
         return {"status": "success"}, 200
 
     def delete(self, product_id):
