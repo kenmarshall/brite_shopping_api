@@ -1,5 +1,6 @@
 from flask_restful import Resource
 from flask import request, jsonify
+from app import logger
 
 
 # TODO: Add error handling and logging
@@ -10,10 +11,12 @@ class ProductResource(Resource):
     def get(self, product_id=None):
         try:
             if product_id:
-                return self.product_model.get_one(product_id), 200
-
-            return self.product_model.get_all(), 200
+                product = self.product_model.get_one(product_id)
+                return product, 200
+            products = self.product_model.get_all()
+            return products, 200
         except Exception as e:
+            logger.error(f"Error occurred while fetching product(s): {e}")
             return {"message": "An error occurred"}, 500
 
     def post(self):
@@ -22,7 +25,8 @@ class ProductResource(Resource):
             self.product_model.add(data)
             return {"status": "success"}, 201
         except Exception as e:
-            return {"message": f"An error occurred {str(e)}"}, 500
+            logger.error(f"Error occurred while adding a new product: {e}")
+            return {"message": "An error occurred"}, 500
 
     def put(self, product_id):
         data = request.get_json()

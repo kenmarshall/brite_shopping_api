@@ -13,6 +13,7 @@ env/
 .venv/
 .env/
 .env.local
+.env
 
 # IDE and Editor settings
 .vscode/
