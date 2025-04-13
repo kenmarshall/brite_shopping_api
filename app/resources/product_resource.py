@@ -1,18 +1,27 @@
 from flask_restful import Resource
 from flask import request, jsonify
-from app import logger
+from app import logger, product_model
 
 
 # TODO: Add error handling and logging
 class ProductResource(Resource):
-    def __init__(self, product_model):
+    def __init__(self):
         self.product_model = product_model
 
     def get(self, product_id=None):
         try:
+            # Find by the product id
             if product_id:
                 product = self.product_model.get_one(product_id)
                 return product, 200
+            
+            # Find by name 
+            name = request.args.get('name')
+            if name:
+              products = self.product_model.find_by_name(name)
+              return products, 200
+            
+            # All products - to include pagination or some explore/filtering options
             products = self.product_model.get_all()
             return products, 200
         except Exception as e:

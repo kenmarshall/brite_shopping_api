@@ -14,8 +14,9 @@ config = configparser.ConfigParser()
 config.read(os.path.abspath(os.path.join("config.ini")))
 
 logger = None
+product_model = None
 def create_app(flask_env):
-  global logger
+  global logger, product_model
   app = Flask(__name__)
 
   db = init_db(config, flask_env)
@@ -34,7 +35,7 @@ def create_app(flask_env):
   api = Api(app)
 
     # - map http routes to resources
-  api.add_resource(ProductResource, "/products", "/products/<string:product_id>", resource_class_args=(product_model,))
+  api.add_resource(ProductResource, "/products", "/products/<string:product_id>")
   api.add_resource(ReceiptResource, "/receipts")
 
   return app
