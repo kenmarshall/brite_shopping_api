@@ -11,7 +11,8 @@ pymongo==4.10.1
 pytz==2024.2
 six==1.16.0
 Werkzeug==3.0.4
-openai
 python-dotenv
 scikit-learn
 googlemaps
+sentence_transformers
+faiss-cpu

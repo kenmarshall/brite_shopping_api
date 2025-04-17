@@ -65,3 +65,5 @@ class GoogleMapsService:
             return top_results
         except Exception as e:
             raise ValueError(f"Error finding store by name: {e}")
+        
+location_service = GoogleMapsService()

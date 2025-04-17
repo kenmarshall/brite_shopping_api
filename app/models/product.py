@@ -1,6 +1,4 @@
-import uuid
-from app.services.openai import openai
-from sklearn.metrics.pairwise import cosine_similarity
+from app.services.ai_service import ai_service
 from app.db import db
 
 
@@ -15,27 +13,27 @@ class ProductModel:
         return product
 
     def find_by_name(self, query_name):
-        # Step 1: Generate embedding for the query name
-        query_embedding = self._generate_embedding(query_name)
+        """
+        Finds products similar to the given query name using FAISS.
+        :param query_name: The name to search for.
+        :param top_k: The number of similar products to return.
+        :return: List of similar products with similarity scores.
+        """
+        try:
+            # Generate embedding for the query name
+            query_embedding = ai_service.generate_embedding(query_name)
 
-        # Step 2: Fetch all products and their embeddings
-        products = list(self.collection.find({"embedding": {"$exists": True}}))
-        product_embeddings = [product["embedding"] for product in products]
+            # Perform similarity search using the private method in AIService
+            _, indices = ai_service.search_similar(query_embedding, top_k=5)
 
-        # Step 3: Compute similarity scores
-        similarities = cosine_similarity([query_embedding], product_embeddings)[0]
+            # Fetch the corresponding products from the database
+            products = list(self.collection.find({"embedding": {"$exists": True}}))
+            similar_products = [products[i] for i in indices[0]]
 
-        # Step 4: Sort products by similarity
-        sorted_products = sorted(
-            zip(products, similarities), key=lambda x: x[1], reverse=True
-        )
-
-        # Step 5: Return top N similar products
-        top_products = [
-            {**product, "similarity": similarity}
-            for product, similarity in sorted_products[:5]
-        ]
-        return top_products
+            # Return the similar products
+            return similar_products
+        except Exception as e:
+            raise ValueError(f"Error finding similar products: {e}")
 
     def get_all(self):
         documents = self.collection.find()
@@ -47,12 +45,17 @@ class ProductModel:
         return result
 
     def add(self, data):
-        # TODO: Add data validation
+        """
+        Adds a new product to the database and generates its embedding.
+        """
         try:
             # Generate embedding for the product name
             if "name" in data:
-                embedding = self._generate_embedding(data["name"])
+                embedding = ai_service.generate_embedding(data["name"])
                 data["embedding"] = embedding
+
+                # Add the embedding to the FAISS index
+                ai_service.add_to_index(embedding)
 
             # Ensure locations field is initialized
             if "locations" not in data:
@@ -62,6 +65,7 @@ class ProductModel:
             self.collection.insert_one(data)
         except Exception as e:
             raise ValueError(f"Error adding product: {e}")
+
 
     def add_location(self, product_id, store, price, latitude, longitude, address):
         """
@@ -83,9 +87,5 @@ class ProductModel:
             )
         except Exception as e:
             raise ValueError(f"Error adding location: {e}")
-
-    def _generate_embedding(self, text):
-        response = openai.Embedding.create(input=text, model="text-embedding-ada-002")
-        return response["data"][0]["embedding"]
 
 product_model = ProductModel(db.products)
