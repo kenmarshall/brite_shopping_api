@@ -8,7 +8,7 @@ from .resources.product_resource import ProductResource
 from .resources.receipt_resource import ReceiptResource
 from .models.product import ProductModel
 from .db import init_db
-from .celery_config import init_celery
+# from .celery_config import init_celery
 
 config = configparser.ConfigParser()
 config.read(os.path.abspath(os.path.join("config.ini")))
