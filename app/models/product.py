@@ -1,5 +1,5 @@
 import uuid
-from services.openai import openai
+from app.services.openai import openai
 from sklearn.metrics.pairwise import cosine_similarity
 from app.db import db
 
@@ -11,7 +11,7 @@ class ProductModel:
         self.collection = collection
 
     def get_one(self, product_id):
-        product = self.collection.find_one({"_id": uuid.UUID(product_id)})
+        product = self.collection.find_one({"_id": str(product_id)})
         return product
 
     def find_by_name(self, query_name):
