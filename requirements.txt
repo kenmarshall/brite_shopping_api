@@ -14,3 +14,4 @@ Werkzeug==3.0.4
 openai
 python-dotenv
 scikit-learn
+googlemaps

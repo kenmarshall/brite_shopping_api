@@ -51,6 +51,10 @@ class ProductModel:
             if "name" in data:
                 embedding = self._generate_embedding(data["name"])
                 data["embedding"] = embedding
+            
+            # Ensure locations field is initialized
+            if "locations" not in data:
+              data["locations"] = []
 
             self.collection.insert_one(data)
         except Exception as e:
