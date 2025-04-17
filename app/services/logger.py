@@ -1,6 +1,7 @@
 import logging
 import requests
 import os
+import sys
 
 LOG_ENDPOINT_URL = "https://s1269448.eu-nbg-2.betterstackdata.com/"
 class HTTPLogHandler(logging.Handler):
@@ -24,12 +25,23 @@ class HTTPLogHandler(logging.Handler):
             # Handle exceptions silently to avoid breaking the application
             print(f"Failed to send log: {e}")
 
+# Environment variable to determine the current environment
+ENV = os.getenv("FLASK_ENV", "development")
 
 logger = logging.getLogger("HTTPLogger")
 logger.setLevel(logging.DEBUG)  # Set the desired log level
 
+# Formatter for log messages
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
 # Create and add the custom HTTP handler
-http_handler = HTTPLogHandler()
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-http_handler.setFormatter(formatter)
-logger.addHandler(http_handler)
+if ENV == "development":
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+# Add an HTTPLogHandler for production or other environments
+if ENV == "production":
+    http_handler = HTTPLogHandler("https://example.com/logs")  # Replace with your log endpoint
+    http_handler.setFormatter(formatter)
+    logger.addHandler(http_handler)
