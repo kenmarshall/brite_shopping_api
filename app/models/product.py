@@ -1,10 +1,11 @@
 import uuid
 from services.openai import openai
 from sklearn.metrics.pairwise import cosine_similarity
+from app.db import db
+
+
 
 # TODO: Need to add some pagination and filtering and indexing name
-
-
 class ProductModel:
     def __init__(self, collection):
         self.collection = collection
@@ -86,3 +87,5 @@ class ProductModel:
     def _generate_embedding(self, text):
         response = openai.Embedding.create(input=text, model="text-embedding-ada-002")
         return response["data"][0]["embedding"]
+
+product_model = ProductModel(db.products)

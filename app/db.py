@@ -1,7 +1,11 @@
 from pymongo import MongoClient
+import os
 
 
-def init_db(configs, flask_env):
-    mongo_configs = configs[f"mongo:{flask_env}"]
-    client = MongoClient(mongo_configs["MONGO_URI"], uuidRepresentation="standard")
-    return client.brite_shopping_db
+# Load MongoDB URI and database name from environment variables
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/brite_shopping")
+MONGO_DATABASE_NAME = os.getenv("MONGO_DATABASE_NAME", "brite_shopping_db")
+
+# Initialize the MongoDB client as a module-level singleton
+client = MongoClient(MONGO_URI)
+db = client[MONGO_DATABASE_NAME]
