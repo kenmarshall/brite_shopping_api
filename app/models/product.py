@@ -46,19 +46,42 @@ class ProductModel:
         return result
 
     def add(self, data):
-        # - TODO: add data validation
+        # TODO: Add data validation
         try:
+            # Generate embedding for the product name
             if "name" in data:
                 embedding = self._generate_embedding(data["name"])
                 data["embedding"] = embedding
-            
+
             # Ensure locations field is initialized
             if "locations" not in data:
-              data["locations"] = []
+                data["locations"] = []
 
+            # Insert the product into the database
             self.collection.insert_one(data)
         except Exception as e:
             raise ValueError(f"Error adding product: {e}")
+
+    def add_location(self, product_id, store, price, latitude, longitude, address):
+        """
+        Adds a store location with price and geographical data to a product.
+        """
+        try:
+            location_data = {
+                "store": store,
+                "price": price,
+                "latitude": latitude,
+                "longitude": longitude,
+                "address": address
+            }
+
+            # Add the location to the product's locations array
+            self.collection.update_one(
+                {"_id": product_id},
+                {"$push": {"locations": location_data}}
+            )
+        except Exception as e:
+            raise ValueError(f"Error adding location: {e}")
 
     def _generate_embedding(self, text):
         response = openai.Embedding.create(input=text, model="text-embedding-ada-002")
