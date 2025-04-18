@@ -46,3 +46,7 @@ build/
 Thumbs.db
 
 config.ini
+
+# FAISS-related generated files
+embeddings_index/faiss.index
+embeddings_index/metadata.pkl

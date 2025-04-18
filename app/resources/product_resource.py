@@ -3,19 +3,20 @@ from flask import request
 from app.services.logger import logger
 from app.models.product import product_model
 
+
 class ProductResource(Resource):
     def get(self, product_id=None):
         try:
             # Find by the product id
             if product_id:
                 return product_model.get_one(product_id), 200
-            
-            # Find by name 
-            name = request.args.get('name')
+            # Find by name
+            name = request.args.get("name")
+
             if name:
-              products = product_model.find_by_name(name)
-              return products, 200
-            
+                products = product_model.find_by_name(name)
+                return products, 200
+
             # All products - to include pagination or some explore/filtering options
             return product_model.get_all(), 200
         except Exception as e:

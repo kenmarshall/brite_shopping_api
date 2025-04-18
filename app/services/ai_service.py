@@ -1,54 +1,89 @@
-from sentence_transformers import SentenceTransformer
-import numpy as np
+import os
+from bson import ObjectId
 import faiss
+import pickle
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
 
 class AIService:
-    def __init__(self):
-        # Load a pre-trained SentenceTransformer model
-        self.embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
-        self.index = None  # FAISS index for similarity search
-        self.embeddings = []  # Store embeddings in memory for incremental updates
+    def __init__(self, model_name="all-MiniLM-L6-v2", index_dir="embeddings_index"):
+        self.dim = 384
+        self.index_dir = index_dir
+        self.index_file = os.path.join(index_dir, "faiss.index")
+        self.metadata_file = os.path.join(index_dir, "metadata.pkl")
+        os.makedirs(index_dir, exist_ok=True)
 
-    def generate_embedding(self, text):
-        """
-        Generates an embedding for the given text using SentenceTransformers.
-        :param text: The input text.
-        :return: The embedding vector.
-        """
-        return self.embedding_model.encode(text)
+        # Load model
+        self.model = SentenceTransformer(model_name)
 
-    def initialize_faiss_index(self, dimension):
-        """
-        Initializes a FAISS index for similarity search.
-        :param dimension: The dimensionality of the embeddings.
-        """
-        self.index = faiss.IndexFlatL2(dimension)
+        # Load or initialize FAISS index
+        if os.path.exists(self.index_file):
+            self.index = faiss.read_index(self.index_file)
+        else:
+            self.index = faiss.IndexFlatL2(self.dim)
 
-    def add_to_index(self, embedding):
-        """
-        Adds a new embedding to the FAISS index.
-        :param embedding: The embedding vector to add.
-        """
-        if self.index is None:
-            # Initialize the FAISS index if it doesn't exist
-            dimension = len(embedding)
-            self.initialize_faiss_index(dimension)
+        # Load or initialize doc_ids
+        if os.path.exists(self.metadata_file):
+            with open(self.metadata_file, "rb") as f:
+                self.doc_ids = pickle.load(f)
+        else:
+            self.doc_ids = []
 
-        # Add the embedding to the FAISS index
-        self.index.add(np.array([embedding]))
+    def generate_embedding(self, name):
+        embedding = self.model.encode(name).astype("float32").reshape(1, -1)
+        return embedding
+
+    def add_to_index(self, embedding, doc_id):
+        self.index.add(embedding)
+        self.doc_ids.append(str(doc_id))
+        self._persist()
 
     def search_similar(self, query_embedding, top_k=5):
-        """
-        Searches for the most similar embeddings in the FAISS index.
-        :param query_embedding: The embedding of the query text.
-        :param top_k: The number of similar items to return.
-        :return: Distances and indices of the top-k similar items.
-        """
-        if self.index is None or self.index.ntotal == 0:
-            raise ValueError("FAISS index is empty or has not been initialized.")
+        if self.index.ntotal == 0 or len(self.doc_ids) == 0:
+            return [], []
 
-        distances, indices = self.index.search(np.array([query_embedding]), k=top_k)
-        return distances, indices
+        distances, indices = self.index.search(query_embedding, top_k)
+
+        matched_ids = []
+        for row in indices:
+            matched_row = []
+            for i in row:
+                if 0 <= i < len(self.doc_ids):
+                    matched_row.append(self.doc_ids[i])
+            matched_ids.append(matched_row)
+
+        return distances, matched_ids
+
+    def _persist(self):
+        faiss.write_index(self.index, self.index_file)
+        with open(self.metadata_file, "wb") as f:
+            pickle.dump(self.doc_ids, f)
     
+    def rebuild_index_from_db(self, products_collection):
+
+        print("Rebuilding FAISS index from MongoDB...")
+
+        products = list(products_collection.find({"embedding": {"$exists": True}}))
+        if not products:
+            print("No embeddings found in database.")
+            return
+
+        # Reset index
+        self.index = faiss.IndexFlatL2(self.dim)
+        self.doc_ids = []
+
+        vectors = []
+        for p in products:
+            vectors.append(np.array(p["embedding"], dtype="float32"))
+            self.doc_ids.append(str(p["_id"]))
+
+        embeddings = np.vstack(vectors)
+        self.index.add(embeddings)
+        self._persist()
+
+        print(f"Rebuilt FAISS index with {len(products)} entries.")
+
+
+# Instantiate the service
 ai_service = AIService()

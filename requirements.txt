@@ -12,7 +12,7 @@ pytz==2024.2
 six==1.16.0
 Werkzeug==3.0.4
 python-dotenv
-scikit-learn
 googlemaps
 sentence_transformers
 faiss-cpu
+numpy<2
