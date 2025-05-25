@@ -1,7 +1,7 @@
-# PriceMart API
+# Brite Shopping API
 
 ## Description
-A Flask-RESTful API for managing products and searching for store locations. It utilizes AI-powered search for products and integrates with Google Maps for location finding.
+A Flask-RESTful API for managing products and searching for store locations. It utilizes AI-powered search for products and integrates with Google Maps for location finding. It allows users to compare product prices across locations. 
 
 ## Features
 *   Search and retrieve products (GET by ID or name, POST for new products).

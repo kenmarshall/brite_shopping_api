@@ -1,7 +1,7 @@
 from flask import request
 from flask_restful import Resource
 from app.models.store_model import store_model
-from app.models.product_price import product_price_model
+from app.models.product_price_model import product_price_model
 
 
 class ProductPriceListResource(Resource):

@@ -2,11 +2,9 @@
 from flask import Flask
 from flask_restful import Api
 from .resources.product_resource import ProductResource
-from .resources.location_resource import LocationResource
-# from .resources.receipt_resource import ReceiptResource
-from .services.logger import logger
+from .resources.store_resource import StoreResource
+from .services.logger_service import logger
 
-# from .celery_config import init_celery
 
 
 def create_app(flask_env):
@@ -17,7 +15,6 @@ def create_app(flask_env):
 
     # - map http routes to resources
     api.add_resource(ProductResource, "/products", "/products/<string:product_id>")
-    api.add_resource(LocationResource, "/locations")
-   # api.add_resource(ReceiptResource, "/receipts")
+    api.add_resource(StoreResource, "/stores")
 
     return app
