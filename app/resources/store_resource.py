@@ -3,11 +3,11 @@ from flask import request
 from app.services.logger import logger
 from app.services.google_maps import location_service
 
-class LocationResource(Resource):
+class StoreResource(Resource):
     def get(self):
         """
-        Handles GET requests to find store locations by address or name.
-        :return: JSON response containing store location data.
+        Handles GET requests to find store by address or name.
+        :return: JSON response containing store data.
         """
         try:
             # Check if the request is for finding a store by address or name
