@@ -1,17 +1,33 @@
-from app.db import db
-from bson import ObjectId
-from pymongo import ReturnDocument
+from app.db import db  # Import the database connection
+from bson import ObjectId  # Import ObjectId for MongoDB document IDs
+from pymongo import ReturnDocument  # Import ReturnDocument for returning updated documents
 
 class StoreModel:
+    """
+    A model class for interacting with the 'stores' collection in the database.
+    Provides methods to ensure a store exists or create it if it doesn't.
+    """
+
     def __init__(self, collection):
+        """
+        Initializes the StoreModel with a specific MongoDB collection.
+        :param collection: The MongoDB collection to interact with.
+        """
         self.collection = collection
 
     def get_or_create(self, store_data: dict):
         """
-        Ensures a store exists. If not, inserts it.
-        Returns the _id of the matched or inserted store.
+        Ensures a store exists in the database. If the store does not exist, it inserts it.
+        Returns the _id of the matched or newly inserted store.
+
+        :param store_data: A dictionary containing store details (e.g., name, location).
+        :return: The _id of the matched or inserted store.
+        :raises ValueError: If the store name is not provided in the input data.
         """
+        # Extract the store name from the input data
         store_name = store_data.get("store")
+        
+        # Raise an error if the store name is missing
         if not store_name:
             raise ValueError("Store name is required")
 

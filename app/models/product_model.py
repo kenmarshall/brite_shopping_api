@@ -1,89 +1,73 @@
-from bson import ObjectId
-from app.services.ai_service import ai_service
-from app.db import db
+"""
+This file defines the ProductModel class, which provides methods for interacting
+with the 'products' collection in the MongoDB database. It includes functionality
+to add products, retrieve products, and find similar products using embeddings.
+"""
+
+from app.db import db  # Import the database connection
+from bson.objectid import ObjectId  # Import ObjectId for MongoDB document IDs
+from app.services.ai_service import AIService  # Import AIService for embedding generation and similarity search
 
 
-# TODO: Need to add some pagination and filtering and indexing name
 class ProductModel:
-    def __init__(self, collection):
-        self.collection = collection
+    """
+    A model class for interacting with the 'products' collection in the database.
+    Provides methods to add, retrieve, and find similar products.
+    """
 
-    def add(self, data):
+    def __init__(self):
         """
-        Adds a new product to the database and indexes it for similarity search.
+        Initializes the ProductModel with the database collection and AIService.
         """
-        try:
-            name = data.get("name")
-            if not name:
-                raise ValueError("Product name is required")
+        self.collection = db.products  # Reference to the 'products' collection in the database
+        self.ai_service = AIService()  # Instance of AIService for embedding-related operations
 
-            # Generate embedding for the product name
-            embedding = ai_service.generate_embedding(name)
-            data["embedding"] = embedding.flatten().tolist()
-
-            # Ensure locations field is initialized
-            if "locations" not in data:
-                data["locations"] = []
-
-            # Insert the product into MongoDB
-            result = self.collection.insert_one(data)
-
-            # Add the embedding to FAISS index with Mongo _id
-            ai_service.add_to_index(embedding, result.inserted_id)
-
-            return str(result.inserted_id)
-        except Exception as e:
-            raise ValueError(f"Error adding product: {e}")
-
-    def get_one(self, product_id):
-        try:
-            product = self.collection.find_one({"_id": ObjectId(product_id)})
-            if product:
-                product["_id"] = str(product["_id"])
-            return product
-        except Exception:
-            return None
-
-    def get_all(self):
-        documents = self.collection.find()
-
-        result = []
-        for document in documents:
-            document["_id"] = str(document["_id"])
-            result.append(document)
-        return result
-
-    def find_by_name(self, name, top_k=5):
+    def add_product(self, data: dict) -> ObjectId:
         """
-        Finds top-k products most similar to the given name using FAISS.
-        Returns list of products with similarity scores and the embedding.
+        Adds a new product to the database and generates its embedding.
+
+        :param data: A dictionary containing product details (e.g., name, description, price).
+        :return: The _id of the newly inserted product.
+        :raises ValueError: If required fields are missing in the input data.
         """
-        try:
-            embedding = ai_service.generate_embedding(name)
-            distances, matched_ids = ai_service.search_similar(embedding, top_k=top_k)
+        # Validate input data
+        if "name" not in data:
+            raise ValueError("Product name is required")
 
-            if not matched_ids or not matched_ids[0]:
-                return []
+        # Generate embedding for the product name
+        embedding = self.ai_service.generate_embedding(data["name"])
+        data["embedding"] = embedding  # Add the embedding to the product data
 
-            ids = [ObjectId(pid) for pid in matched_ids[0]]
-            docs = list(self.collection.find({"_id": {"$in": ids}}, {"embedding": 0}))
-            doc_map = {str(doc["_id"]): doc for doc in docs}
-            similar_products = []
+        # Insert the product into the database
+        result = self.collection.insert_one(data)
+        return result.inserted_id  # Return the ID of the newly inserted product
 
-            for i, pid in enumerate(matched_ids[0]):
-                pid_str = str(pid)
-                doc = doc_map.get(pid_str)
-                if doc:
-                    doc["_id"] = pid_str
-                    doc["similarity"] = float(distances[0][i])
-                    similar_products.append(doc)
+    def get_one(self, product_id: str) -> dict:
+        """
+        Retrieves a single product from the database by its ID.
 
-            return similar_products
+        :param product_id: The ID of the product to retrieve.
+        :return: The product document as a dictionary, or None if not found.
+        """
+        # Convert the product_id to an ObjectId and query the database
+        return self.collection.find_one({"_id": ObjectId(product_id)})
 
-        except Exception as e:
-            raise ValueError(f"Error finding similar products: {e}")
-        except Exception as e:
-            raise ValueError(f"Error finding similar products: {e}")
+    def find_by_name(self, query_name: str, top_k: int = 5) -> list:
+        """
+        Finds products similar to the given query name using embeddings.
 
+        :param query_name: The name to search for.
+        :param top_k: The number of similar products to return.
+        :return: A list of similar product documents.
+        """
+        # Generate an embedding for the query name
+        query_embedding = self.ai_service.generate_embedding(query_name)
 
-product_model = ProductModel(db.products)
+        # Perform similarity search using the AIService
+        indices = self.ai_service.search_similar(query_embedding, top_k)
+
+        # Fetch the corresponding products from the database
+        products = list(self.collection.find({"embedding": {"$exists": True}}))
+        similar_products = [products[i] for i in indices]
+
+        return similar_products  # Return the list of similar products
