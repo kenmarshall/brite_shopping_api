@@ -3,7 +3,7 @@ from flask import Flask
 from flask_restful import Api
 from .resources.product_resource import ProductResource
 from .resources.store_resource import StoreResource
-from .services.logger import logger
+from .services.logger_service import logger
 
 
 
