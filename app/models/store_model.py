@@ -8,14 +8,8 @@ class StoreModel:
     Provides methods to ensure a store exists or create it if it doesn't.
     """
 
-    def __init__(self, collection):
-        """
-        Initializes the StoreModel with a specific MongoDB collection.
-        :param collection: The MongoDB collection to interact with.
-        """
-        self.collection = collection
-
-    def get_or_create(self, store_data: dict):
+    @staticmethod
+    def get_or_create(store_data: dict):
         """
         Ensures a store exists in the database. If the store does not exist, it inserts it.
         Returns the _id of the matched or newly inserted store.
@@ -43,25 +37,25 @@ class StoreModel:
              clean_data["place_id"] = place_id
 
 
-        store = self.collection.find_one_and_update(
-            {"place_id": place_id},                 # Match by place_id
-            {"$setOnInsert": clean_data},           # Only insert if new, with all non-None fields
+        store = db.stores.find_one_and_update(
+            {"store": store_name},                  # Match by name
+            {"$setOnInsert": clean_data},           # Only insert if new
             upsert=True,
             return_document=ReturnDocument.AFTER
         )
 
         return store["_id"]
 
-    def get(self, store_id):
-        store = self.collection.find_one({"_id": ObjectId(store_id)})
+    @staticmethod
+    def get(store_id):
+        store = db.stores.find_one({"_id": ObjectId(store_id)})
         if store:
             store["_id"] = str(store["_id"])
         return store
 
-    def get_all(self):
-        stores = list(self.collection.find())
+    @staticmethod
+    def get_all():
+        stores = list(db.stores.find())
         for store in stores:
             store["_id"] = str(store["_id"])
         return stores
-
-store_model = StoreModel(db.stores)
