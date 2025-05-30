@@ -71,3 +71,5 @@ class ProductModel:
         similar_products = [products[i] for i in indices]
 
         return similar_products  # Return the list of similar products
+
+product_model = ProductModel()
