@@ -4,10 +4,8 @@ from app.db import db
 
 
 class ProductPriceModel:
-    def __init__(self, collection):
-        self.collection = collection
-
-    def add_price(self, product_id, store_id, price, currency="JMD"):
+    @staticmethod
+    def add_price(product_id, store_id, price, currency="JMD"):
         """
         Adds a price entry linking a product and a store.
         """
@@ -18,9 +16,10 @@ class ProductPriceModel:
             "currency": currency,
             "last_updated": datetime.now(timezone.utc)
         }
-        self.collection.insert_one(price_doc)
+        db.product_prices.insert_one(price_doc)
 
-    def get_prices_for_product(self, product_id):
+    @staticmethod
+    def get_prices_for_product(product_id):
         """
         Returns a list of prices for a given product, enriched with store details.
         """
@@ -37,7 +36,7 @@ class ProductPriceModel:
             {"$unwind": "$store"},
             {"$sort": {"price": 1}}
         ]
-        prices = list(self.collection.aggregate(pipeline))
+        prices = list(db.product_prices.aggregate(pipeline))
 
         # Convert ObjectId fields to string for client response
         for price in prices:
@@ -48,7 +47,8 @@ class ProductPriceModel:
 
         return prices
 
-    def get_lowest_price(self, product_id):
+    @staticmethod
+    def get_lowest_price(product_id):
         """
         Returns the store and price info for the lowest available price.
         """
@@ -66,7 +66,7 @@ class ProductPriceModel:
             {"$sort": {"price": 1}},
             {"$limit": 1}
         ]
-        result = list(self.collection.aggregate(pipeline))
+        result = list(db.product_prices.aggregate(pipeline))
         if not result:
             return None
 
@@ -76,6 +76,3 @@ class ProductPriceModel:
         item["store_id"] = str(item["store_id"])
         item["store"]["_id"] = str(item["store"]["_id"])
         return item
-
-
-product_price_model = ProductPriceModel(db.product_prices)
