@@ -2,6 +2,8 @@ from flask_restful import Resource
 from flask import request
 from app.services.logger_service import logger
 from app.models.product_model import product_model
+from app.models.store_model import store_model
+from app.models.product_price_model import product_price_model
 
 
 class ProductResource(Resource):
@@ -23,11 +25,43 @@ class ProductResource(Resource):
             logger.error(f"Error occurred while fetching product(s): {e}")
             return {"message": "An error occurred"}, 500
 
+    # Expects JSON: {"product_data": {...}, "store_info": {"place_id": ..., ...}, "price": ..., "currency": ...}
     def post(self):
         try:
             data = request.get_json()
-            product_model.add(data)
-            return {"status": "success"}, 201
+
+            product_data = data.get("product_data")
+            store_info = data.get("store_info")
+            price = data.get("price")
+            currency = data.get("currency", "JMD")  # Default currency if not provided
+
+            # Basic validation
+            if not product_data or not product_data.get("name"):
+                return {"message": "Product data with name is required"}, 400
+            if not store_info:
+                return {"message": "Store info is required"}, 400
+            if not store_info.get("place_id"):
+                return {"message": "Store place_id is required"}, 400
+            if price is None or not isinstance(price, (int, float)):
+                return {"message": "Price is required and must be a number"}, 400
+
+            # Get or create store
+            store_id = store_model.get_or_create(store_info)
+
+            # Add product
+            product_id = product_model.add_product(product_data)
+
+            # Add product price
+            product_price_model.add_price(product_id, store_id, price, currency)
+
+            return {
+                "message": "Product created successfully",
+                "product_id": str(product_id),
+                "store_id": str(store_id)
+            }, 201
+        except ValueError as ve:
+            logger.error(f"Validation error while adding a new product: {ve}")
+            return {"message": str(ve)}, 400
         except Exception as e:
             logger.error(f"Error occurred while adding a new product: {e}")
             return {"message": "An error occurred"}, 500

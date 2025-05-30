@@ -24,19 +24,28 @@ class StoreModel:
         :return: The _id of the matched or inserted store.
         :raises ValueError: If the store name is not provided in the input data.
         """
-        # Extract the store name from the input data
+        # Extract the store name and place_id from the input data
         store_name = store_data.get("store")
-        
-        # Raise an error if the store name is missing
+        place_id = store_data.get("place_id")
+
+        # Raise an error if the store name is missing (can be removed later if not needed)
         if not store_name:
             raise ValueError("Store name is required")
 
+        # Raise an error if place_id is missing
+        if not place_id:
+            raise ValueError("Store place_id is required")
+
         # Remove None values from the store_data to avoid inserting empty fields
+        # Ensure place_id is part of clean_data if it exists in store_data
         clean_data = {k: v for k, v in store_data.items() if v is not None}
+        if "place_id" not in clean_data and place_id:
+             clean_data["place_id"] = place_id
+
 
         store = self.collection.find_one_and_update(
-            {"store": store_name},                  # Match by name
-            {"$setOnInsert": clean_data},           # Only insert if new
+            {"place_id": place_id},                 # Match by place_id
+            {"$setOnInsert": clean_data},           # Only insert if new, with all non-None fields
             upsert=True,
             return_document=ReturnDocument.AFTER
         )
