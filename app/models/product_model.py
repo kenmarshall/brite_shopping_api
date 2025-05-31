@@ -16,25 +16,39 @@ class ProductModel:
     """
 
     @staticmethod
-    def add_product(data: dict) -> ObjectId:
+    def get_or_create_product(data: dict) -> ObjectId:
         """
-        Adds a new product to the database and generates its embedding.
+        Retrieves an existing product by name or adds it to the database if it doesn't exist.
+        Generates an embedding if the product is new.
 
-        :param data: A dictionary containing product details (e.g., name, description, price).
-        :return: The _id of the newly inserted product.
-        :raises ValueError: If required fields are missing in the input data.
+        :param data: A dictionary containing product details (e.g., name, description).
+                     Must include "name".
+        :return: The _id of the existing or newly inserted product.
+        :raises ValueError: If 'name' is missing in the input data.
         """
-        # Validate input data
-        if "name" not in data:
-            raise ValueError("Product name is required")
+        product_name = data.get("name")
+        if not product_name:
+            raise ValueError("Product name ('name' field) is required.")
 
-        # Generate embedding for the product name
-        embedding = ai_service.generate_embedding(data["name"])
-        data["embedding"] = embedding  # Add the embedding to the product data
+        # Check for an existing product with the same name (case-sensitive)
+        existing_product = db.products.find_one({"name": product_name})
 
-        # Insert the product into the database
-        result = db.products.insert_one(data)
-        return result.inserted_id  # Return the ID of the newly inserted product
+        if existing_product:
+            return existing_product["_id"]  # Return ID of existing product
+        else:
+            # Product not found, create a new one
+            # Generate embedding for the product name
+            embedding = ai_service.generate_embedding(product_name)
+
+            # Prepare product data for insertion
+            # Include original data and the new embedding
+            # Make sure not to modify the input 'data' dictionary directly if it's not desired
+            product_to_insert = data.copy() # Create a copy to avoid modifying the original dict
+            product_to_insert["embedding"] = embedding
+
+            # Insert the new product into the database
+            result = db.products.insert_one(product_to_insert)
+            return result.inserted_id  # Return the ID of the newly inserted product
 
     @staticmethod
     def get_one(product_id: str) -> dict:

@@ -1,135 +1,97 @@
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch # Ensure patch is imported
 from bson import ObjectId
 from pymongo import ReturnDocument
 
-# Mock heavy dependencies before they are imported by app code
-MOCK_MODULES = [
-    "faiss",
-    "sentence_transformers",
-    "app.services.ai_service", # Mock the entire service
-    "app.services.google_maps_service", 
-    # Add other problematic modules here if they appear
-]
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = MagicMock()
+# conftest.py should handle mocking app.services.google_maps_service, ai_service, faiss, sentence_transformers
 
-# Assuming app.models.store_model and app.db are discoverable in PYTHONPATH
-# If not, adjustments to sys.path might be needed for a test runner
-# For now, let's assume they are.
 from app.models.store_model import StoreModel
-# We don't import 'db' directly here, we'll mock the collection passed to StoreModel
+# No direct db import here, will be patched
 
 class TestStoreModelGetOrCreate(unittest.TestCase):
 
-    def setUp(self):
-        self.mock_collection = MagicMock()
-        self.store_model_instance = StoreModel(self.mock_collection)
+    @patch('app.models.store_model.db') # Patch the db object used by StoreModel
+    def test_get_or_create_new_store(self, mock_app_db):
+        mock_stores_collection = MagicMock()
+        mock_app_db.stores = mock_stores_collection # Make db.stores use this mock
 
-    def test_get_or_create_new_store(self):
-        new_store_data = {
-            "place_id": "place123",
-            "store": "Test Store",
-            "address": "123 Test St",
-            "latitude": 10.0,
-            "longitude": 20.0
-        }
-        # Remove None values, as the method does
-        clean_new_store_data = {k: v for k, v in new_store_data.items() if v is not None}
+        new_store_data = {"place_id": "place123", "store": "Test Store", "address": "123 Test St"}
+        # data_for_set will be store_data excluding place_id, and None values (none here)
+        expected_data_for_set = {"store": "Test Store", "address": "123 Test St"}
 
         expected_id = ObjectId()
-        self.mock_collection.find_one_and_update.return_value = {
-            "_id": expected_id,
-            **clean_new_store_data
-        }
+        mock_stores_collection.find_one_and_update.return_value = {"_id": expected_id, **new_store_data}
 
-        result_id = self.store_model_instance.get_or_create(new_store_data)
+        result_id = StoreModel.get_or_create(new_store_data)
 
-        self.mock_collection.find_one_and_update.assert_called_once_with(
+        mock_stores_collection.find_one_and_update.assert_called_once_with(
             {"place_id": "place123"},
-            {"$setOnInsert": clean_new_store_data},
+            {"$set": expected_data_for_set, "$setOnInsert": {"place_id": "place123"}},
             upsert=True,
             return_document=ReturnDocument.AFTER
         )
         self.assertEqual(result_id, expected_id)
 
-    def test_get_or_create_existing_store(self):
-        existing_store_data = {
-            "place_id": "place456",
-            "store": "Existing Store",
-            "address": "456 Old St",
-        }
-        # Remove None values
-        clean_existing_store_data = {k:v for k,v in existing_store_data.items() if v is not None}
+    @patch('app.models.store_model.db')
+    def test_get_or_create_updates_existing_store(self, mock_app_db):
+        mock_stores_collection = MagicMock()
+        mock_app_db.stores = mock_stores_collection
 
+        existing_store_data = {"place_id": "place456", "store": "Updated Store Name", "address": "Updated Address"}
+        expected_data_for_set = {"store": "Updated Store Name", "address": "Updated Address"}
 
-        expected_id = ObjectId()
-        # Simulate that the store is found and returned
-        self.mock_collection.find_one_and_update.return_value = {
+        expected_id = ObjectId() # ID of the existing store
+        # Simulate find_one_and_update finding and updating, returning the updated doc
+        mock_stores_collection.find_one_and_update.return_value = {
             "_id": expected_id,
-            "place_id": "place456", # Should already have this
-            "store": "Existing Store",
-            "address": "456 Old St",
-            # Potentially other fields from when it was created
+            "place_id": "place456", # from $setOnInsert or already there
+            **expected_data_for_set    # from $set
         }
 
-        result_id = self.store_model_instance.get_or_create(existing_store_data)
+        result_id = StoreModel.get_or_create(existing_store_data)
 
-        self.mock_collection.find_one_and_update.assert_called_once_with(
+        mock_stores_collection.find_one_and_update.assert_called_once_with(
             {"place_id": "place456"},
-            {"$setOnInsert": clean_existing_store_data}, # This data would be set if it were an insert
+            {"$set": expected_data_for_set, "$setOnInsert": {"place_id": "place456"}},
             upsert=True,
             return_document=ReturnDocument.AFTER
         )
         self.assertEqual(result_id, expected_id)
-        # We don't need to assert $setOnInsert didn't change fields,
-        # as find_one_and_update handles that. The key is it was called correctly.
 
-    def test_get_or_create_no_place_id(self):
-        store_data_no_place_id = {
-            "store": "Test Store No Place ID"
-        }
+    @patch('app.models.store_model.db')
+    def test_get_or_create_no_place_id(self, mock_app_db):
+        # This test doesn't need mock_stores_collection as it should fail before DB call
+        store_data_no_place_id = {"store": "Test Store No Place ID"}
         with self.assertRaisesRegex(ValueError, "Store place_id is required"):
-            self.store_model_instance.get_or_create(store_data_no_place_id)
+            StoreModel.get_or_create(store_data_no_place_id)
+        mock_app_db.stores.find_one_and_update.assert_not_called()
+
+
+    @patch('app.models.store_model.db')
+    def test_get_or_create_no_store_name(self, mock_app_db):
+        store_data_no_name = {"place_id": "place789"}
+        with self.assertRaisesRegex(ValueError, "Store name .* required"): # Match updated error
+            StoreModel.get_or_create(store_data_no_name)
+        mock_app_db.stores.find_one_and_update.assert_not_called()
+
+    @patch('app.models.store_model.db')
+    def test_get_or_create_with_none_values_in_data(self, mock_app_db):
+        mock_stores_collection = MagicMock()
+        mock_app_db.stores = mock_stores_collection
+
+        store_data_with_none = {"place_id": "place101", "store": "Store With None", "address": None, "link": "http://example.com"}
+        # data_for_set should filter out 'address: None'
+        expected_data_for_set = {"store": "Store With None", "link": "http://example.com"}
         
-        self.mock_collection.find_one_and_update.assert_not_called()
-
-    def test_get_or_create_no_store_name(self):
-        store_data_no_name = {
-            "place_id": "place789"
-            # Missing "store" (name)
-        }
-        with self.assertRaisesRegex(ValueError, "Store name is required"):
-            self.store_model_instance.get_or_create(store_data_no_name)
-
-        self.mock_collection.find_one_and_update.assert_not_called()
-
-    def test_get_or_create_with_none_values_in_data(self):
-        store_data_with_none = {
-            "place_id": "place101",
-            "store": "Store With None",
-            "address": None, # This should be cleaned
-            "latitude": 10.5
-        }
-        
-        cleaned_data = {
-            "place_id": "place101",
-            "store": "Store With None",
-            "latitude": 10.5
-        }
-        if "place_id" not in cleaned_data and store_data_with_none.get("place_id"): # logic from original code
-             cleaned_data["place_id"] = store_data_with_none.get("place_id")
-
-
         expected_id = ObjectId()
-        self.mock_collection.find_one_and_update.return_value = {"_id": expected_id, **cleaned_data}
+        mock_stores_collection.find_one_and_update.return_value = {"_id": expected_id, "place_id": "place101", **expected_data_for_set}
 
-        result_id = self.store_model_instance.get_or_create(store_data_with_none)
+        result_id = StoreModel.get_or_create(store_data_with_none)
 
-        self.mock_collection.find_one_and_update.assert_called_once_with(
+        mock_stores_collection.find_one_and_update.assert_called_once_with(
             {"place_id": "place101"},
-            {"$setOnInsert": cleaned_data},
+            {"$set": expected_data_for_set, "$setOnInsert": {"place_id": "place101"}},
             upsert=True,
             return_document=ReturnDocument.AFTER
         )

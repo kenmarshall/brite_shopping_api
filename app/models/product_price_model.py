@@ -1,22 +1,56 @@
 from bson import ObjectId
 from datetime import datetime, timezone
 from app.db import db
+from pymongo import ReturnDocument # Added import
 
 
 class ProductPriceModel:
     @staticmethod
-    def add_price(product_id, store_id, price, currency="JMD"):
+    def upsert_price(product_id: str, store_id: str, price: float, currency: str = "JMD"):
         """
-        Adds a price entry linking a product and a store.
+        Updates an existing price entry for a product at a specific store,
+        or inserts a new price entry if one does not already exist.
+
+        :param product_id: The ID of the product.
+        :param store_id: The ID of the store.
+        :param price: The price of the product.
+        :param currency: The currency of the price (defaults to "JMD").
+        :return: The _id of the updated or newly inserted price document.
         """
-        price_doc = {
-            "product_id": ObjectId(product_id),
-            "store_id": ObjectId(store_id),
-            "price": price,
-            "currency": currency,
-            "last_updated": datetime.now(timezone.utc)
+        # Convert string IDs to ObjectId
+        obj_product_id = ObjectId(product_id)
+        obj_store_id = ObjectId(store_id)
+
+        query = {
+            "product_id": obj_product_id,
+            "store_id": obj_store_id
         }
-        db.product_prices.insert_one(price_doc)
+
+        update_payload = {
+            "$set": {
+                "price": price,
+                "currency": currency,
+                "last_updated": datetime.now(timezone.utc)
+            },
+            # If the document is created (upserted), we also need to ensure
+            # product_id and store_id are set. $setOnInsert is good for this.
+            "$setOnInsert": {
+                "product_id": obj_product_id,
+                "store_id": obj_store_id
+            }
+        }
+
+        # Using find_one_and_update with upsert=True handles both cases:
+        # - If a document matching the query exists, it's updated according to $set.
+        # - If no document matches, a new one is inserted using fields from $set and $setOnInsert.
+        result_doc = db.product_prices.find_one_and_update(
+            query,
+            update_payload,
+            upsert=True,
+            return_document=ReturnDocument.AFTER # Return the document after update/insert
+        )
+
+        return result_doc["_id"]
 
     @staticmethod
     def get_prices_for_product(product_id):

@@ -1,51 +1,31 @@
 import pytest
-from pymongo import MongoClient
 from bson import ObjectId
-import mongomock # For mocking MongoDB
+import mongomock
+from unittest.mock import MagicMock, patch # Ensure patch is imported
+# import sys # sys might not be needed anymore if all sys.modules are in conftest
+from datetime import datetime, timezone, timedelta
 
-# Mock the db connection before models are imported
-# This is a common pattern for testing with a mocked database.
-# We need to ensure 'app.db.db' is patched BEFORE StoreModel, ProductModel, etc. are imported.
-# One way to achieve this is to set up the mock in a conftest.py or at the very top of the test file.
+# app.db is patched by the mock_db fixture
+from app.db import db as original_db_module
 
-# For simplicity here, we'll assume app.db can be influenced by an environment variable
-# or we can directly patch it. Let's try direct patching for this subtask.
-
-from app.db import db as original_db_module # Keep a reference if needed, or ensure it's not used
-
-# Mock AIService before ProductModel imports it
-from unittest.mock import MagicMock
-import sys
-mock_ai_service = MagicMock()
-def mock_generate_embedding(text):
-    # Return a fixed-length list of floats as a dummy embedding
-    return [0.1] * 768 # Assuming embedding dimension, adjust if known or necessary
-mock_ai_service.generate_embedding = mock_generate_embedding
-sys.modules['app.services.ai_service'] = MagicMock(ai_service=mock_ai_service)
-
-
-# Now import models AFTER patching dependencies
+# Models
 from app.models.store_model import StoreModel
 from app.models.product_model import ProductModel
 from app.models.product_price_model import ProductPriceModel
 
+# NOTE: ai_service and google_maps_service should now be mocked by conftest.py
+
 @pytest.fixture(scope="function")
 def mock_db():
-    # Use mongomock for a clean, in-memory MongoDB for each test function
     client = mongomock.MongoClient()
     mock_db_instance = client.test_db_unit
 
-    # Monkeypatch the 'db' object in app.db module
-    # This is a critical step: ensure 'app.db.db' points to our mock_db_instance
-    # The original 'db.py' likely does something like:
-    # client = MongoClient(os.getenv("MONGO_URI"))
-    # db = client.get_default_database() # or client[DB_NAME]
-    # We need to replace 'db' that models will use.
+    # Patch the collection objects on the imported db module instance
     original_db_module.products = mock_db_instance.products
     original_db_module.stores = mock_db_instance.stores
     original_db_module.product_prices = mock_db_instance.product_prices
 
-    yield mock_db_instance
+    yield mock_db_instance # The test will use this for direct assertions
 
     # Teardown: Clear collections after each test
     mock_db_instance.products.delete_many({})
@@ -53,103 +33,179 @@ def mock_db():
     mock_db_instance.product_prices.delete_many({})
     client.close()
 
-
 class TestCoreModels:
 
+    # --- StoreModel Tests ---
     def test_store_get_or_create_new(self, mock_db):
-        store_data = {
-            "store": "New Store",
-            "place_id": "place123",
-            "address": "123 Main St"
-        }
+        store_data = {"place_id": "new_place1", "store": "New Store", "address": "123 New St"}
         store_id = StoreModel.get_or_create(store_data)
         assert store_id is not None
         created_store = mock_db.stores.find_one({"_id": store_id})
         assert created_store is not None
+        assert created_store["place_id"] == "new_place1"
         assert created_store["store"] == "New Store"
-        assert created_store["place_id"] == "place123"
+        assert created_store["address"] == "123 New St"
+        assert mock_db.stores.count_documents({}) == 1
 
-    def test_store_get_or_create_existing(self, mock_db):
-        # First, create a store
-        initial_store_data = {
-            "store": "Existing Store",
-            "place_id": "place456",
-            "address": "456 Oak Ave"
-        }
-        # Ensure the store is created using the logic that sets all fields
-        # The model's get_or_create uses $setOnInsert, so we need to match its behavior
-        # For an existing store, we only need to match on 'store' name as per current StoreModel
-        mock_db.stores.insert_one({
-            "store": "Existing Store",
-            "place_id": "place456",
-            "address": "456 Oak Ave",
-            "other_field": "value" # To check if $setOnInsert preserves other fields if we were to update
-        })
+    def test_store_get_or_create_finds_existing_and_updates_fields(self, mock_db): # Combined existing and update test
+        initial_id = mock_db.stores.insert_one(
+            {"place_id": "existing_place1", "store": "Old Store Name", "address": "Old Address", "other_field": "should_remain"}
+        ).inserted_id
 
-        # Now, try to get or create with the same store name but potentially different/missing other data
-        # The current StoreModel.get_or_create matches on "store" (name) only for the find part
-        # and uses place_id from store_data for $setOnInsert if new.
-        # Let's test based on the provided StoreModel logic.
-        # The model's get_or_create uses {"store": store_name} as filter.
+        store_data_for_lookup = {"place_id": "existing_place1", "store": "New Store Name", "address": "New Address", "new_field": "added"}
 
-        store_data_to_find = {
-            "store": "Existing Store", # Matching name
-            "place_id": "place456",    # This must be provided for $setOnInsert, but find is by name
-                                       # If store name is unique, place_id would be the same.
-                                       # If store name not unique, then place_id should be part of the filter.
-                                       # Current StoreModel matches on name, then upserts with place_id.
-                                       # This test assumes store name is the primary key for finding.
-        }
+        returned_id = StoreModel.get_or_create(store_data_for_lookup)
+        assert returned_id == initial_id
 
-        retrieved_store_id = StoreModel.get_or_create(store_data_to_find)
+        updated_store = mock_db.stores.find_one({"_id": initial_id})
+        assert updated_store["store"] == "New Store Name"
+        assert updated_store["address"] == "New Address"
+        assert updated_store["other_field"] == "should_remain" # Unchanged by $set if not in data_for_set
+        assert updated_store["new_field"] == "added"
+        assert mock_db.stores.count_documents({}) == 1
 
-        assert retrieved_store_id is not None
-
-        found_store = mock_db.stores.find_one({"_id": retrieved_store_id})
-        assert found_store is not None
-        assert found_store["store"] == "Existing Store"
-        assert found_store["place_id"] == "place456" # Should be the original place_id
-        assert mock_db.stores.count_documents({"store": "Existing Store"}) == 1
-
+    def test_store_get_or_create_handles_none_values_in_data(self, mock_db):
+        store_data = {"place_id": "pID002", "store": "Store With None", "address": None, "link": "http://example.com"}
+        store_id = StoreModel.get_or_create(store_data) # The model filters out 'address: None'
+        created_store = mock_db.stores.find_one({"_id": store_id})
+        assert created_store is not None
+        assert created_store["place_id"] == "pID002"
+        assert created_store["store"] == "Store With None"
+        assert "address" not in created_store # None value was filtered out by model's data_for_set
+        assert created_store["link"] == "http://example.com"
 
     def test_store_get_or_create_missing_place_id(self, mock_db):
         with pytest.raises(ValueError, match="Store place_id is required"):
             StoreModel.get_or_create({"store": "Store Without Place ID"})
 
-    def test_product_add_product(self, mock_db):
-        # ai_service is mocked globally at the start of this file
-        product_data = {"name": "Test Product", "description": "A cool product"}
-        product_id = ProductModel.add_product(product_data)
+    def test_store_get_or_create_missing_store_name(self, mock_db):
+        with pytest.raises(ValueError, match="Store name .* required"): # Updated regex for store name error
+            StoreModel.get_or_create({"place_id": "place123"})
+
+    # --- ProductModel Tests ---
+    def test_product_get_or_create_new_product(self, mock_db):
+        # ai_service.generate_embedding is mocked by conftest.py to return [0.1] * 768
+        product_data = {"name": "New Unique Product", "description": "A fresh product"}
+        product_id = ProductModel.get_or_create_product(product_data)
         assert product_id is not None
         created_product = mock_db.products.find_one({"_id": product_id})
         assert created_product is not None
-        assert created_product["name"] == "Test Product"
-        assert "embedding" in created_product # Check that embedding was added
-        assert created_product["embedding"] == [0.1] * 768 # Check dummy embedding
+        assert created_product["name"] == "New Unique Product"
+        assert "embedding" in created_product
+        assert created_product["embedding"] == [0.1] * 768
+        assert mock_db.products.count_documents({}) == 1
 
-    def test_product_add_product_missing_name(self, mock_db):
-        with pytest.raises(ValueError, match="Product name is required"):
-            ProductModel.add_product({"description": "Product without a name"})
+    def test_product_get_or_create_existing_product(self, mock_db):
+        initial_embedding = [0.2] * 768
+        existing_product_id = mock_db.products.insert_one(
+            {"name": "Existing Product", "description": "Already here", "embedding": initial_embedding}
+        ).inserted_id
 
-    def test_product_price_add_price(self, mock_db):
-        # Create dummy product and store IDs for linking
-        # In a real scenario, these would come from adding a product and store first
-        test_product_id = ObjectId()
-        test_store_id = ObjectId()
-        price = 12.99
-        currency = "EUR"
+        product_data = {"name": "Existing Product", "description": "Updated description attempt"}
 
-        # Insert dummy product and store for FK reference if ProductPriceModel checks existence (it doesn't currently)
-        mock_db.products.insert_one({"_id": test_product_id, "name": "Dummy Product"})
-        mock_db.stores.insert_one({"_id": test_store_id, "name": "Dummy Store", "place_id": "dummy_place"})
+        # Patch the ai_service.generate_embedding where it's used by get_or_create_product
+        # This is 'app.models.product_model.ai_service'
+        with patch('app.models.product_model.ai_service.generate_embedding') as mock_gen_embedding:
+            # Ensure the mock from conftest is not further complicating this.
+            # The local patch should take precedence.
+            mock_gen_embedding.return_value = [0.3] * 768 # Different from conftest to be sure
 
-        ProductPriceModel.add_price(str(test_product_id), str(test_store_id), price, currency)
+            returned_id = ProductModel.get_or_create_product(product_data)
+            mock_gen_embedding.assert_not_called() # Crucial check: Should not be called for existing product
 
-        price_entry = mock_db.product_prices.find_one({
-            "product_id": test_product_id,
-            "store_id": test_store_id
-        })
-        assert price_entry is not None
-        assert price_entry["price"] == price
-        assert price_entry["currency"] == currency
-        assert "last_updated" in price_entry
+        assert returned_id == existing_product_id
+
+        product_in_db = mock_db.products.find_one({"_id": existing_product_id})
+        assert product_in_db["description"] == "Already here"
+        assert product_in_db["embedding"] == initial_embedding # Embedding should be original
+        assert mock_db.products.count_documents({}) == 1
+
+    def test_product_get_or_create_missing_name(self, mock_db):
+        with pytest.raises(ValueError, match="Product name .* required"): # Updated regex for product name error
+            ProductModel.get_or_create_product({"description": "Product without a name"})
+
+    # --- ProductPriceModel Tests ---
+    def test_product_price_upsert_new_price(self, mock_db):
+        prod_id = ObjectId()
+        store_id = ObjectId()
+        # Mock product and store existence for FK, though not strictly enforced by current model
+        mock_db.products.insert_one({"_id": prod_id, "name": "Test Prod"})
+        mock_db.stores.insert_one({"_id": store_id, "name": "Test Store", "place_id": "p1"})
+
+        price_val = 9.99
+        currency_val = "USD"
+        time_before = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+        price_id = ProductPriceModel.upsert_price(str(prod_id), str(store_id), price_val, currency_val)
+        assert price_id is not None
+
+        price_doc = mock_db.product_prices.find_one({"_id": price_id})
+        assert price_doc["product_id"] == prod_id
+        assert price_doc["store_id"] == store_id
+        assert price_doc["price"] == price_val
+        assert price_doc["currency"] == currency_val
+
+        retrieved_dt = price_doc["last_updated"]
+        if retrieved_dt.tzinfo is None: # Make it timezone-aware if mongomock made it naive
+            retrieved_dt = retrieved_dt.replace(tzinfo=timezone.utc)
+        assert retrieved_dt > time_before
+        assert mock_db.product_prices.count_documents({}) == 1
+
+    def test_product_price_upsert_updates_existing_price(self, mock_db):
+        prod_id = ObjectId()
+        store_id = ObjectId()
+        mock_db.products.insert_one({"_id": prod_id, "name": "Test Prod"})
+        mock_db.stores.insert_one({"_id": store_id, "name": "Test Store", "place_id": "p1"})
+
+        initial_price_val = 10.00
+        initial_currency = "USD"
+        initial_time = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        # Pre-populate price
+        existing_price_id = mock_db.product_prices.insert_one({
+            "product_id": prod_id,
+            "store_id": store_id,
+            "price": initial_price_val,
+            "currency": initial_currency,
+            "last_updated": initial_time
+        }).inserted_id
+
+        updated_price_val = 12.50
+        updated_currency = "EUR"
+        time_before_update = datetime.now(timezone.utc) - timedelta(seconds=1)
+
+        returned_price_id = ProductPriceModel.upsert_price(str(prod_id), str(store_id), updated_price_val, updated_currency)
+        assert returned_price_id == existing_price_id # ID should be the same
+
+        price_doc = mock_db.product_prices.find_one({"_id": returned_price_id})
+        assert price_doc["price"] == updated_price_val
+        assert price_doc["currency"] == updated_currency
+
+        retrieved_dt_updated = price_doc["last_updated"]
+        if retrieved_dt_updated.tzinfo is None: # Make it timezone-aware
+            retrieved_dt_updated = retrieved_dt_updated.replace(tzinfo=timezone.utc)
+
+        # Ensure initial_time is also UTC aware for the != comparison
+        if initial_time.tzinfo is None:
+             initial_time_aware = initial_time.replace(tzinfo=timezone.utc) # Should not happen based on test code
+        else:
+            initial_time_aware = initial_time
+
+        assert retrieved_dt_updated > time_before_update
+        assert retrieved_dt_updated != initial_time_aware
+        assert mock_db.product_prices.count_documents({}) == 1
+
+    def test_product_price_upsert_with_string_ids_creates_new(self, mock_db): # Test with string IDs for new entry
+        prod_id_str = str(ObjectId())
+        store_id_str = str(ObjectId())
+        # No pre-existing product/store needed in DB for this model's logic,
+        # as it doesn't perform lookups on product/store collections.
+
+        price_id = ProductPriceModel.upsert_price(prod_id_str, store_id_str, 20.00, "CAD")
+        assert price_id is not None
+        price_doc = mock_db.product_prices.find_one({"_id": price_id})
+        assert price_doc["product_id"] == ObjectId(prod_id_str)
+        assert price_doc["store_id"] == ObjectId(store_id_str)
+        assert price_doc["price"] == 20.00
+        assert price_doc["currency"] == "CAD"
+        assert mock_db.product_prices.count_documents({}) == 1
