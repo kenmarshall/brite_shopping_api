@@ -6,7 +6,7 @@ to add products, retrieve products, and find similar products using embeddings.
 
 from app.db import db  # Import the database connection
 from bson.objectid import ObjectId  # Import ObjectId for MongoDB document IDs
-from app.services.ai_service import AIService  # Import AIService for embedding generation and similarity search
+from app.services.ai_service import ai_service  # Import AIService for embedding generation and similarity search
 
 
 class ProductModel:
@@ -29,7 +29,6 @@ class ProductModel:
             raise ValueError("Product name is required")
 
         # Generate embedding for the product name
-        ai_service = AIService()
         embedding = ai_service.generate_embedding(data["name"])
         data["embedding"] = embedding  # Add the embedding to the product data
 
@@ -58,16 +57,40 @@ class ProductModel:
         :return: A list of similar product documents.
         """
         # Generate an embedding for the query name
-        ai_service = AIService()
         query_embedding = ai_service.generate_embedding(query_name)
 
         # Perform similarity search using the AIService
-        indices = ai_service.search_similar(query_embedding, top_k)
+        # search_similar returns distances, matched_ids
+        # matched_ids is a list of lists of doc_ids. For a single query, it's like [['id1', 'id2', ...]]
+        _, matched_id_lists = ai_service.search_similar(query_embedding, top_k)
 
-        # Fetch the corresponding products from the database
-        products = list(db.products.find({"embedding": {"$exists": True}}))
-        similar_products = [products[i] for i in indices]
+        similar_products = []
+        # If search_similar returns nothing or an empty list for the first query
+        if not matched_id_lists or not matched_id_lists[0]:
+            return similar_products
 
-        return similar_products  # Return the list of similar products
+        # Process the first list of matched IDs (assuming single query search)
+        # Fetch products one by one to maintain the order from FAISS.
+        # This also ensures that if a product ID from FAISS is somehow stale and not in DB, it's skipped.
+        for product_id_str in matched_id_lists[0]:
+            product = db.products.find_one({"_id": ObjectId(product_id_str)})
+            if product:
+                # Optionally, convert ObjectId to string if that's the expected output format for downstream consumers
+                # For now, keeping it as is from the database.
+                similar_products.append(product)
 
-product_model = ProductModel()
+        return similar_products
+
+    @staticmethod
+    def get_all() -> list:
+        """
+        Retrieves all products from the database.
+
+        :return: A list of all product documents.
+        """
+        products = list(db.products.find({}))
+        for product in products:
+            if isinstance(product.get("_id"), ObjectId):
+                product["_id"] = str(product["_id"])
+            # Potentially convert other ObjectId fields if necessary
+        return products

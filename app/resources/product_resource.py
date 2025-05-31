@@ -1,7 +1,7 @@
 from flask_restful import Resource
 from flask import request
 from app.services.logger_service import logger
-from app.models.product_model import product_model
+from app.models.product_model import ProductModel
 from app.models.store_model import store_model
 from app.models.product_price_model import product_price_model
 
@@ -11,16 +11,16 @@ class ProductResource(Resource):
         try:
             # Find by the product id
             if product_id:
-                return product_model.get_one(product_id), 200
+                return ProductModel.get_one(product_id), 200
             # Find by name
             name = request.args.get("name")
 
             if name:
-                products = product_model.find_by_name(name)
+                products = ProductModel.find_by_name(name)
                 return products, 200
 
             # All products - to include pagination or some explore/filtering options
-            return product_model.get_all(), 200
+            return ProductModel.get_all(), 200
         except Exception as e:
             logger.error(f"Error occurred while fetching product(s): {e}")
             return {"message": "An error occurred"}, 500
@@ -49,7 +49,7 @@ class ProductResource(Resource):
             store_id = store_model.get_or_create(store_info)
 
             # Add product
-            product_id = product_model.add_product(product_data)
+            product_id = ProductModel.add_product(product_data)
 
             # Add product price
             product_price_model.add_price(product_id, store_id, price, currency)
