@@ -33,37 +33,38 @@ class ProductResource(Resource):
             product_data = data.get("product_data")
             store_info = data.get("store_info")
             price = data.get("price")
-            currency = data.get("currency", "JMD")  # Default currency if not provided
+            currency = data.get("currency", "JMD")
 
-            # Basic validation
             if not product_data or not product_data.get("name"):
                 return {"message": "Product data with name is required"}, 400
             if not store_info:
                 return {"message": "Store info is required"}, 400
-            if not store_info.get("place_id"):
+            if not store_info.get("place_id"): # Assuming store_info contains place_id
                 return {"message": "Store place_id is required"}, 400
-            if price is None or not isinstance(price, (int, float)):
+            if price is None or not isinstance(price, (int, float)): # Check type of price
                 return {"message": "Price is required and must be a number"}, 400
 
             # Get or create store
             store_id = StoreModel.get_or_create(store_info)
 
-            # Add product
-            product_id = ProductModel.add_product(product_data)
+            # Get or create product
+            product_id = ProductModel.get_or_create_product(product_data)
 
-            # Add product price
-            ProductPriceModel.add_price(product_id, store_id, price, currency)
+            # Add or update product price
+            # Ensure product_id and store_id are strings when passed to upsert_price
+            price_id = ProductPriceModel.upsert_price(str(product_id), str(store_id), price, currency)
 
             return {
-                "message": "Product created successfully",
+                "message": "Product information processed successfully",
                 "product_id": str(product_id),
-                "store_id": str(store_id)
+                "store_id": str(store_id),
+                "price_id": str(price_id)
             }, 201
         except ValueError as ve:
-            logger.error(f"Validation error while adding a new product: {ve}")
+            logger.error(f"Validation error while processing product information: {ve}")
             return {"message": str(ve)}, 400
         except Exception as e:
-            logger.error(f"Error occurred while adding a new product: {e}")
+            logger.error(f"Error occurred while processing product information: {e}")
             return {"message": "An error occurred"}, 500
 
     def put(self, product_id):
