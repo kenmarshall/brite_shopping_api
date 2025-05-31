@@ -8,7 +8,11 @@ load_dotenv()
 class GoogleMapsService:
     def __init__(self):
         # Initialize the Google Maps client with the API key
-        self.gmaps = googlemaps.Client(key=os.getenv("GOOGLE_MAPS_API_KEY"))
+        api_key = os.getenv("GOOGLE_MAPS_API_KEY")
+        if api_key == "mock_google_maps_key_for_testing_purposes_only":
+            self.gmaps = None
+        else:
+            self.gmaps = googlemaps.Client(key=api_key)
 
     def find_store_by_address(self, address):
         """
@@ -16,6 +20,9 @@ class GoogleMapsService:
         :param address: The address of the store to search for.
         :return: A dictionary containing place_id, latitude, longitude, and formatted address.
         """
+        if not self.gmaps:
+            # Mock response or raise an error if testing requires this method
+            raise ConnectionError("Google Maps client not initialized due to mock API key.")
         try:
             # Use the Geocoding API to find the location
             geocode_result = self.gmaps.geocode(address)
@@ -44,6 +51,9 @@ class GoogleMapsService:
         :param radius: Search radius in meters (default: 5000).
         :return: A list of dictionaries containing name, place_id, latitude, longitude, and formatted address.
         """
+        if not self.gmaps:
+            # Mock response or raise an error if testing requires this method
+            raise ConnectionError("Google Maps client not initialized due to mock API key.")
         try:
             # Use the Places API to find the store by name
             places_result = self.gmaps.places(name, location=location, radius=radius)
