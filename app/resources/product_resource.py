@@ -2,8 +2,8 @@ from flask_restful import Resource
 from flask import request
 from app.services.logger_service import logger
 from app.models.product_model import ProductModel
-from app.models.store_model import store_model
-from app.models.product_price_model import product_price_model
+from app.models.store_model import StoreModel
+from app.models.product_price_model import ProductPriceModel
 
 
 class ProductResource(Resource):
@@ -46,13 +46,13 @@ class ProductResource(Resource):
                 return {"message": "Price is required and must be a number"}, 400
 
             # Get or create store
-            store_id = store_model.get_or_create(store_info)
+            store_id = StoreModel.get_or_create(store_info)
 
             # Add product
             product_id = ProductModel.add_product(product_data)
 
             # Add product price
-            product_price_model.add_price(product_id, store_id, price, currency)
+            ProductPriceModel.add_price(product_id, store_id, price, currency)
 
             return {
                 "message": "Product created successfully",

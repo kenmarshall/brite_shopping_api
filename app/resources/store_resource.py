@@ -1,7 +1,7 @@
 from flask_restful import Resource
 from flask import request
 from app.services.logger_service import logger
-from app.services.google_maps_service import location_service
+from app.services.google_maps_service import google_maps_service
 
 class StoreResource(Resource):
     def get(self):
@@ -14,13 +14,13 @@ class StoreResource(Resource):
             if "address" in request.args:
                 address = request.args.get("address")
                 logger.info(f"Finding store by address: {address}")
-                result = location_service.find_store_by_address(address)
+                result = google_maps_service.find_store_by_address(address)
             elif "name" in request.args:
                 name = request.args.get("name")
                 location = request.args.get("location")
                 radius = request.args.get("radius", default=5000, type=int)
                 logger.info(f"Finding store by name: {name}, location: {location}, radius: {radius}")
-                result = location_service.find_store_by_name(name, location, radius)
+                result = google_maps_service.find_store_by_name(name, location, radius)
             else:
                 return {"error": "Please provide either an address or a name."}, 400
 
