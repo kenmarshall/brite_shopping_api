@@ -93,3 +93,16 @@ A Flask-RESTful API for managing products and searching for store locations. It 
             *   `radius` (optional): Search radius in meters (default is 5000).
             *   Example: `GET /locations?name=CoffeeShop&location=New%20York&radius=1000`
     *   Response: `200 OK` with `{"data": result}` containing location information. `400 Bad Request` if required parameters are missing.
+
+## Deploying to Render
+
+To deploy this application to Render, follow these steps:
+
+1.  **Create a new Web Service on Render.**
+2.  **Connect your Git repository.**
+3.  **Set the Build Command:** `pip install -r requirements.txt`
+4.  **Set the Start Command:** `gunicorn run:app`
+5.  **Configure environment variables** as needed (e.g., `FLASK_ENV=production`, database URLs, API keys).
+6.  **Deploy!**
+
+Render will automatically detect the `Procfile` and use the `web` process type with the Gunicorn command.
