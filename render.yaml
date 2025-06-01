@@ -1,6 +1,18 @@
 services:
   - type: web
-    name: my-app
+    name: brite-shopping-app # Changed from my-app
     env: python
     buildCommand: "pip install -r requirements.txt"
     startCommand: "gunicorn run:app"
+    healthCheckPath: /health # Added health check path
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: MONGO_URI
+        # Ensure this is set in Render dashboard secrets
+        # Example: mongodb+srv://<user>:<password>@<cluster-uri>/<dbname>
+        value: "" # Placeholder - set actual value in Render dashboard
+      - key: MONGO_DATABASE_NAME
+        # Ensure this is set in Render dashboard secrets
+        value: "" # Placeholder - set actual value in Render dashboard
+      # Add other environment variables your app might need
