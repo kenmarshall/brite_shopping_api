@@ -16,3 +16,4 @@ googlemaps
 sentence_transformers
 faiss-cpu
 numpy<2
+gunicorn
