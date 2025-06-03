@@ -106,3 +106,55 @@ To deploy this application to Render, follow these steps:
 6.  **Deploy!**
 
 Render will automatically detect the `Procfile` and use the `web` process type with the Gunicorn command.
+
+## Memory Profiling (Development)
+
+This project uses the `memory-profiler` library to help identify memory usage patterns and potential leaks during development.
+
+### Enabling Profiling
+To enable memory profiling for the `create_app` function:
+1.  Ensure the `FLASK_ENV` environment variable is set to `development`.
+2.  Set the `ENABLE_MEMORY_PROFILING` environment variable to `true`.
+
+You can set these in your `.env` file or export them in your shell:
+```bash
+export FLASK_ENV=development
+export ENABLE_MEMORY_PROFILING=true
+```
+
+### Running with Profiling
+Once the environment variables are set, run the application as usual:
+```bash
+python run.py
+```
+The Flask development server will start, and if the conditions for profiling are met, the `memory-profiler` will be active for the decorated functions (currently `create_app`). The profiling output is typically sent to standard error when the application process terminates or when the profiler is explicitly instructed to dump statistics.
+
+### Interpreting the Output
+The profiler output for a function includes several columns:
+-   **Line #**: The line number in the file.
+-   **Mem usage**: Total memory usage by the Python interpreter after this line has been executed.
+-   **Increment**: The difference in memory usage from the previous line. This helps pinpoint lines that cause significant memory increases.
+-   **Occurrences**: Number of times this line was executed (useful for loops).
+-   **Line Contents**: The actual code from the line.
+
+### Initial Findings for `create_app`
+During an initial profiling run (Note: this run used a minimal set of dependencies to isolate Flask application startup), the `create_app` function (specifically, the internal `create_app_internal` function it wraps) showed the following characteristics:
+-   **Initial Memory Usage**: Approximately 47.6 MiB when the function starts.
+-   **Increment within function**: Negligible. The lines within `create_app_internal` (Flask app instantiation, API setup, blueprint registration) did not individually show significant memory increments. This suggests the base Flask application setup has a stable memory footprint at startup.
+
+Example output snippet:
+```
+Filename: /app/app/__init__.py
+
+Line #    Mem usage    Increment  Occurrences   Line Contents
+=============================================================
+    13     47.6 MiB     47.6 MiB           1   def create_app_internal(flask_env):
+    14     47.6 MiB      0.0 MiB           1       app = Flask(__name__)
+    15     47.6 MiB      0.0 MiB           1       logger.info(f"Starting app in {flask_env} environment.")
+    ...
+    24     47.6 MiB      0.0 MiB           1       return app
+```
+
+### Limitations of Current Profiling
+-   The initial findings mentioned above were gathered by running the application with a stripped-down set of dependencies (`requirements_minimal.txt`) to ensure the application could run in a resource-constrained environment and to focus on the core application's memory footprint. Profiling with full dependencies (including AI models and other services) may yield different results and is a recommended next step for comprehensive analysis.
+-   Profiling is currently applied only to the `create_app` function. For more detailed analysis, specific endpoints or service methods might need to be decorated with `@profile`.
