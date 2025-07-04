@@ -20,5 +20,6 @@ gunicorn
 memory-profiler
 openai
 langchain
+langchain-community
 beautifulsoup4
 boto3
