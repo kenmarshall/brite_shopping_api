@@ -18,3 +18,10 @@ faiss-cpu
 numpy<2
 gunicorn
 memory-profiler
+# Added for web scraping and agent functionality
+beautifulsoup4>=4.9.3 # For parsing HTML
+requests>=2.25.1 # For making HTTP requests
+playwright>=1.20 # For JS-heavy sites (optional, if bs4 is not enough)
+openai>=1.0.0 # For OpenAI API (product categorization)
+langchain>=0.1.0 # If using Langchain specific features (alternative for OpenAI client)
+boto3>=1.20.0 # AWS SDK for Python (for S3)
