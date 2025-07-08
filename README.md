@@ -1,160 +1,205 @@
 # Brite Shopping API
 
-## Description
-A Flask-RESTful API for managing products and searching for store locations. It utilizes AI-powered search for products and integrates with Google Maps for location finding. It allows users to compare product prices across locations. 
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## Features
-*   Search and retrieve products (GET by ID or name, POST for new products).
-*   Update and delete products (PUT, DELETE endpoints exist but core logic may require review/completion).
-*   Find store locations using Google Maps (search by address or name within an area).
-*   AI-powered product search capabilities (leveraging sentence transformers and FAISS).
+A REST API backend for the **Brite Shopping** ecosystem. This Flask-based API provides product management, store location services, and price comparison functionality for the mobile grocery shopping application.
 
-## Technologies Used
-*   Python
-*   Flask, Flask-RESTful
-*   MongoDB (pymongo)
-*   Google Maps API
-*   Sentence Transformers & FAISS (for AI/search)
-*   python-dotenv
+## 🎯 Project Overview
 
-## Setup and Installation
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/your-username/pricemart-api.git # Replace with actual URL
-    cd pricemart-api # Replace with actual folder name
-    ```
-2.  Create a virtual environment (recommended):
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
-3.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
-4.  Set up environment variables:
-    Create a `.env` file in the root directory. Essential variables include:
-    ```env
-    FLASK_ENV=development
-    MONGO_URI="your_mongodb_connection_string_here" # e.g., mongodb://localhost:27017/pricemart
-    GOOGLE_MAPS_API_KEY="your_google_maps_api_key_here"
-    # If using specific AI models locally or other services, add their keys/configs here
-    # E.g., FAISS_INDEX_PATH="models/faiss_product_index.idx"
-    ```
+**Brite Shopping API** is the backend component of the intelligent shopping ecosystem consisting of three core components:
 
-## Running the Application
-1.  Ensure your MongoDB instance is running and accessible.
-2.  Start the Flask development server:
-    ```bash
-    python run.py
-    ```
+- **[brite-shopping-catalog-engine](https://github.com/kenmarshall/brite-shopping-catalog-engine)** - AI-powered catalog builder
+- **[brite-shopping-api](https://github.com/kenmarshall/brite-shopping-api)** (This project) - REST API backend 
+- **[brite-shopping-mobile](https://github.com/kenmarshall/brite-shopping-mobile)** - React Native mobile app
 
-## API Endpoints
+### Data Flow
+```
+🤖 Catalog Engine → 📋 MongoDB Atlas → 🔌 API → 📱 Mobile App → 👥 Users
+```
+
+## ✨ Features
+
+- **🛍️ Product Management** - CRUD operations for grocery products
+- **🏪 Store Management** - Store location and details management
+- **💰 Price Tracking** - Multi-store price comparison functionality
+- **🗺️ Google Maps Integration** - Real store location data and search
+- **🔍 Product Search** - Name-based product search functionality
+- **📊 Price Analytics** - Lowest price detection and comparison
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+1. **Python 3.8+** installed
+2. **MongoDB Atlas** account and connection string
+3. **Google Maps API** key for store location services
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/kenmarshall/brite-shopping-api.git
+cd brite-shopping-api
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+cp .env.example .env
+# Edit .env with your MongoDB URI and Google Maps API key
+```
+
+### Environment Variables
+
+Create a `.env` file with the following:
+
+```bash
+# Database
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/brite_shopping
+
+# Google Maps
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+
+# Flask
+FLASK_ENV=development
+```
+
+### Running the Application
+
+```bash
+# Development
+python run.py
+
+# Production with Gunicorn
+gunicorn -w 4 -b 0.0.0.0:8000 run:app
+```
+
+## 📚 API Endpoints
 
 ### Products
-*   **`GET /products`**
-    *   Description: Retrieves a list of all products or filters products by name.
-    *   Query Parameters:
-        *   `name` (optional): Filter products by name.
-    *   Example: `GET /products?name=SuperWidget`
-    *   Response: `200 OK` with a list of product objects.
-*   **`GET /products/<product_id>`**
-    *   Description: Retrieves a specific product by its ID.
-    *   Example: `GET /products/12345`
-    *   Response: `200 OK` with the product object.
-*   **`POST /products`**
-    *   Description: Adds a new product.
-    *   Request Body: JSON object representing the product.
-        ```json
-        {
-            "name": "New Product",
-            "price": 19.99,
-            "description": "A fantastic new product."
-        }
-        ```
-    *   Response: `201 Created` with `{"status": "success"}`.
-*   **`PUT /products/<product_id>`**
-    *   Description: Updates an existing product by its ID. (Note: The core database update logic for this endpoint in `product_resource.py` appears to be commented out and will need implementation).
-    *   Request Body: JSON object with fields to update.
-    *   Response: `200 OK` with `{"status": "success"}`.
-*   **`DELETE /products/<product_id>`**
-    *   Description: Deletes a product by its ID. (Note: The core database deletion logic for this endpoint in `product_resource.py` appears to be commented out and will need implementation).
-    *   Response: `200 OK` with `{"status": "success"}`.
 
-### Locations
-*   **`GET /locations`**
-    *   Description: Finds store locations by address or by name within a specified area.
-    *   Query Parameters (provide one of the following sets):
-        1.  `address`: The address to search for.
-            *   Example: `GET /locations?address=1600%20Amphitheatre%20Parkway,%20Mountain%20View,%20CA`
-        2.  `name`, `location`, `radius` (optional):
-            *   `name`: Name of the store/place.
-            *   `location`: Textual description of the search area (e.g., "San Francisco, CA") or latitude,longitude coordinates (e.g., "37.7749,-122.4194").
-            *   `radius` (optional): Search radius in meters (default is 5000).
-            *   Example: `GET /locations?name=CoffeeShop&location=New%20York&radius=1000`
-    *   Response: `200 OK` with `{"data": result}` containing location information. `400 Bad Request` if required parameters are missing.
+- `GET /products` - List all products or search by name
+- `GET /products/{id}` - Get specific product details
+- `POST /products` - Add new product with store and price info
 
-## Deploying to Render
+### Stores
 
-To deploy this application to Render, follow these steps:
+- `GET /stores` - Find stores by address or name (Google Maps)
+- `GET /stores/search` - Search for store locations
 
-1.  **Create a new Web Service on Render.**
-2.  **Connect your Git repository.**
-3.  **Set the Build Command:** `pip install -r requirements.txt`
-4.  **Set the Start Command:** `gunicorn run:app`
-5.  **Configure environment variables** as needed (e.g., `FLASK_ENV=production`, database URLs, API keys).
-6.  **Deploy!**
+### Product Prices
 
-Render will automatically detect the `Procfile` and use the `web` process type with the Gunicorn command.
+- `GET /products/{id}/prices` - Get all prices for a product
+- `POST /products/{id}/prices` - Add price for a product at a store
 
-## Memory Profiling (Development)
+## 🏗️ Architecture
 
-This project uses the `memory-profiler` library to help identify memory usage patterns and potential leaks during development.
+### Project Structure
+```
+brite-shopping-api/
+├── app/
+│   ├── models/           # Database models
+│   │   ├── product_model.py
+│   │   ├── product_price_model.py
+│   │   └── store_model.py
+│   ├── resources/        # API endpoints
+│   │   ├── product_resource.py
+│   │   ├── product_price_resource.py
+│   │   ├── store_resource.py
+│   │   └── store_search_resource.py
+│   ├── services/         # External service integrations
+│   │   ├── google_maps_service.py
+│   │   └── logger_service.py
+│   ├── tasks/           # Background tasks
+│   └── db.py            # Database connection
+├── tests/               # Test suite
+├── requirements.txt     # Dependencies
+├── run.py              # Application entry point
+└── README.md           # This file
+```
 
-### Enabling Profiling
-To enable memory profiling for the `create_app` function:
-1.  Ensure the `FLASK_ENV` environment variable is set to `development`.
-2.  Set the `ENABLE_MEMORY_PROFILING` environment variable to `true`.
+## 🧪 Testing
 
-You can set these in your `.env` file or export them in your shell:
 ```bash
-export FLASK_ENV=development
-export ENABLE_MEMORY_PROFILING=true
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+
+# Run specific test categories
+pytest tests/models/        # Model tests
+pytest tests/resources/     # API endpoint tests
 ```
 
-### Running with Profiling
-Once the environment variables are set, run the application as usual:
+## 🚀 Deployment
+
+The API is configured for deployment on Render.com using the included `render.yaml` configuration.
+
+### Deploy to Render
+
+1. Connect your GitHub repository to Render
+2. The `render.yaml` will automatically configure the deployment
+3. Set environment variables in the Render dashboard
+4. Deploy!
+
+## 📝 Usage Examples
+
+### Adding a Product with Price
+
 ```bash
-python run.py
-```
-The Flask development server will start, and if the conditions for profiling are met, the `memory-profiler` will be active for the decorated functions (currently `create_app`). The profiling output is typically sent to standard error when the application process terminates or when the profiler is explicitly instructed to dump statistics.
-
-### Interpreting the Output
-The profiler output for a function includes several columns:
--   **Line #**: The line number in the file.
--   **Mem usage**: Total memory usage by the Python interpreter after this line has been executed.
--   **Increment**: The difference in memory usage from the previous line. This helps pinpoint lines that cause significant memory increases.
--   **Occurrences**: Number of times this line was executed (useful for loops).
--   **Line Contents**: The actual code from the line.
-
-### Initial Findings for `create_app`
-During an initial profiling run (Note: this run used a minimal set of dependencies to isolate Flask application startup), the `create_app` function (specifically, the internal `create_app_internal` function it wraps) showed the following characteristics:
--   **Initial Memory Usage**: Approximately 47.6 MiB when the function starts.
--   **Increment within function**: Negligible. The lines within `create_app_internal` (Flask app instantiation, API setup, blueprint registration) did not individually show significant memory increments. This suggests the base Flask application setup has a stable memory footprint at startup.
-
-Example output snippet:
-```
-Filename: /app/app/__init__.py
-
-Line #    Mem usage    Increment  Occurrences   Line Contents
-=============================================================
-    13     47.6 MiB     47.6 MiB           1   def create_app_internal(flask_env):
-    14     47.6 MiB      0.0 MiB           1       app = Flask(__name__)
-    15     47.6 MiB      0.0 MiB           1       logger.info(f"Starting app in {flask_env} environment.")
-    ...
-    24     47.6 MiB      0.0 MiB           1       return app
+curl -X POST http://localhost:5000/products \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_data": {
+      "name": "Grace Kidney Beans",
+      "brand": "Grace",
+      "size": "400g"
+    },
+    "store_info": {
+      "place_id": "ChIJ...",
+      "store": "Hi-Lo Food Stores",
+      "address": "123 Main St, Kingston"
+    },
+    "price": 250.00,
+    "currency": "JMD"
+  }'
 ```
 
-### Limitations of Current Profiling
--   The initial findings mentioned above were gathered by running the application with a stripped-down set of dependencies (`requirements_minimal.txt`) to ensure the application could run in a resource-constrained environment and to focus on the core application's memory footprint. Profiling with full dependencies (including AI models and other services) may yield different results and is a recommended next step for comprehensive analysis.
--   Profiling is currently applied only to the `create_app` function. For more detailed analysis, specific endpoints or service methods might need to be decorated with `@profile`.
+### Searching for Products
+
+```bash
+# Search by name
+curl "http://localhost:5000/products?name=kidney beans"
+
+# Get specific product
+curl "http://localhost:5000/products/607f1f77bcf86cd799439011"
+```
+
+### Finding Stores
+
+```bash
+# Search stores by name
+curl "http://localhost:5000/stores/search?name=Hi-Lo"
+
+# Find store by address
+curl "http://localhost:5000/stores/search?address=123 Main St Kingston"
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔗 Related Projects
+
+- [Brite Shopping Catalog Engine](https://github.com/kenmarshall/brite-shopping-catalog-engine) - AI-powered product catalog builder
+- [Brite Shopping Mobile](https://github.com/kenmarshall/brite-shopping-mobile) - React Native mobile application

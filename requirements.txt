@@ -13,13 +13,4 @@ six==1.16.0
 Werkzeug==3.0.4
 python-dotenv
 googlemaps
-sentence_transformers
-faiss-cpu
-numpy<2
 gunicorn
-memory-profiler
-openai
-langchain
-langchain-community
-beautifulsoup4
-boto3
