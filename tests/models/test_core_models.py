@@ -18,9 +18,9 @@ def mock_db():
     mock_db_instance = client.test_db_unit
 
     # Patch the collection objects on the imported db module instance
-    original_db_module.products = mock_db_instance.products
-    original_db_module.stores = mock_db_instance.stores
-    original_db_module.product_prices = mock_db_instance.product_prices
+    setattr(original_db_module, 'products', mock_db_instance.products)
+    setattr(original_db_module, 'stores', mock_db_instance.stores)
+    setattr(original_db_module, 'product_prices', mock_db_instance.product_prices)
 
     yield mock_db_instance # The test will use this for direct assertions
 

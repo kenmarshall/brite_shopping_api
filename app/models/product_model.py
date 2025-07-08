@@ -4,8 +4,9 @@ with the 'products' collection in the MongoDB database. It includes functionalit
 to add products, retrieve products, and search by name.
 """
 
+from typing import Optional
 from app.db import db  # Import the database connection
-from bson import ObjectId  # Import ObjectId for MongoDB document IDs
+from bson.objectid import ObjectId  # Import ObjectId for MongoDB document IDs
 
 
 class ProductModel:
@@ -40,7 +41,7 @@ class ProductModel:
             return result.inserted_id  # Return the ID of the newly inserted product
 
     @staticmethod
-    def get_one(product_id: str) -> dict:
+    def get_one(product_id: str) -> Optional[dict]:
         """
         Retrieves a single product from the database by its ID.
 
