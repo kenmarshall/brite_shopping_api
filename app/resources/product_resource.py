@@ -1,5 +1,7 @@
 from flask_restful import Resource
 from flask import request
+from bson.objectid import ObjectId
+from app.db import db
 from app.services.logger_service import logger
 from app.models.product_model import ProductModel
 from app.models.store_model import StoreModel
@@ -68,10 +70,32 @@ class ProductResource(Resource):
             return {"message": "An error occurred"}, 500
 
     def put(self, product_id):
-        data = request.get_json()
-        # self.product_model.update_one({"_id": product_id}, data)
-        return {"status": "success"}, 200
+        try:
+            data = request.get_json()
+            if not data:
+                return {"message": "Request body is required"}, 400
+
+            result = db.products.update_one(
+                {"_id": ObjectId(product_id)},
+                {"$set": data}
+            )
+
+            if result.matched_count == 0:
+                return {"message": "Product not found"}, 404
+
+            return {"message": "Product updated", "product_id": product_id}, 200
+        except Exception as e:
+            logger.error(f"Error updating product {product_id}: {e}")
+            return {"message": "An error occurred"}, 500
 
     def delete(self, product_id):
-        # mongo.db.products.delete_one({"_id": product_id})
-        return {"status": "success"}, 200
+        try:
+            result = db.products.delete_one({"_id": ObjectId(product_id)})
+
+            if result.deleted_count == 0:
+                return {"message": "Product not found"}, 404
+
+            return {"message": "Product deleted", "product_id": product_id}, 200
+        except Exception as e:
+            logger.error(f"Error deleting product {product_id}: {e}")
+            return {"message": "An error occurred"}, 500

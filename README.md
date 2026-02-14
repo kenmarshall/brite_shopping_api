@@ -3,11 +3,11 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A REST API backend for the **Brite Shopping** ecosystem. This Flask-based API provides product management, store location services, and price comparison functionality for the mobile grocery shopping application.
+A REST API backend for the **Brite Shopping** ecosystem — a price comparison platform that helps Jamaican shoppers find products across stores and locations, compare prices, and make informed, economical shopping decisions. Whether a store is a physical location or an online shop accessible to Jamaicans, Brite Shopping tracks it.
 
 ## 🎯 Project Overview
 
-**Brite Shopping API** is the backend component of the intelligent shopping ecosystem consisting of three core components:
+**Brite Shopping API** serves product, store, and price data to the mobile app. The catalog engine scrapes and enriches product data from multiple sources; this API exposes it for search, price comparison, and store discovery. The three core components:
 
 - **[brite-shopping-catalog-engine](https://github.com/kenmarshall/brite-shopping-catalog-engine)** - AI-powered catalog builder
 - **[brite-shopping-api](https://github.com/kenmarshall/brite-shopping-api)** (This project) - REST API backend 
@@ -15,8 +15,10 @@ A REST API backend for the **Brite Shopping** ecosystem. This Flask-based API pr
 
 ### Data Flow
 ```
-🤖 Catalog Engine → 📋 MongoDB Atlas → 🔌 API → 📱 Mobile App → 👥 Users
+🤖 Catalog Engine (laptop) → 📋 MongoDB Atlas → 🔌 API (Render) → 📱 Mobile App → 👥 Jamaican Shoppers
 ```
+
+The catalog engine runs on the developer's machine and handles all heavy AI, scraping, and enrichment. This API is a **lightweight REST mediator** on Render — it reads from MongoDB and serves data to the mobile app. The mobile app only talks to this API.
 
 ## ✨ Features
 
