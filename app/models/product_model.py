@@ -1,85 +1,106 @@
 """
-This file defines the ProductModel class, which provides methods for interacting
-with the 'products' collection in the MongoDB database. It includes functionality
-to add products, retrieve products, and search by name.
+ProductModel: methods for interacting with the 'products' collection in MongoDB.
 """
 
 from typing import Optional
-from app.db import db  # Import the database connection
-from bson.objectid import ObjectId  # Import ObjectId for MongoDB document IDs
+from app.db import db
+from bson.objectid import ObjectId
+from app.services.logger_service import logger
+
+
+def _ensure_text_index():
+    """Create a compound text index for relevance-ranked search if it doesn't exist."""
+    existing = db.products.index_information()
+    if "search_text" not in existing:
+        db.products.create_index(
+            [
+                ("name", "text"),
+                ("normalized_name", "text"),
+                ("brand", "text"),
+                ("tags", "text"),
+            ],
+            name="search_text",
+            weights={"name": 10, "normalized_name": 8, "brand": 5, "tags": 3},
+        )
+        logger.info("Created text search index on products collection")
+
+
+# Ensure index exists on module load
+try:
+    _ensure_text_index()
+except Exception as e:
+    logger.warning(f"Could not create text index (will retry on first search): {e}")
+
+
+def _serialize(product: dict) -> dict:
+    """Convert ObjectId to string for JSON serialization."""
+    if product and isinstance(product.get("_id"), ObjectId):
+        product["_id"] = str(product["_id"])
+    return product
 
 
 class ProductModel:
-    """
-    A model class for interacting with the 'products' collection in the database.
-    Provides methods to add, retrieve, and search products.
-    """
 
     @staticmethod
     def get_or_create_product(data: dict) -> ObjectId:
-        """
-        Retrieves an existing product by name or adds it to the database if it doesn't exist.
-
-        :param data: A dictionary containing product details (e.g., name, description).
-                     Must include "name".
-        :return: The _id of the existing or newly inserted product.
-        :raises ValueError: If 'name' is missing in the input data.
-        """
         product_name = data.get("name")
         if not product_name:
             raise ValueError("Product name ('name' field) is required.")
 
-        # Check for an existing product with the same name (case-sensitive)
         existing_product = db.products.find_one({"name": product_name})
 
         if existing_product:
-            return existing_product["_id"]  # Return ID of existing product
+            return existing_product["_id"]
         else:
-            # Product not found, create a new one
-            # Insert the new product into the database
             result = db.products.insert_one(data)
-            return result.inserted_id  # Return the ID of the newly inserted product
+            return result.inserted_id
 
     @staticmethod
     def get_one(product_id: str) -> Optional[dict]:
-        """
-        Retrieves a single product from the database by its ID.
-
-        :param product_id: The ID of the product to retrieve.
-        :return: The product document as a dictionary, or None if not found.
-        """
-        # Convert the product_id to an ObjectId and query the database
-        return db.products.find_one({"_id": ObjectId(product_id)})
+        product = db.products.find_one({"_id": ObjectId(product_id)})
+        return _serialize(product) if product else None
 
     @staticmethod
-    def find_by_name(query_name: str) -> list:
+    def find_by_name(query_name: str, limit: int = 50) -> list:
         """
-        Finds products by name using basic text search.
+        Search products by name with relevance ranking.
+        1. Try MongoDB $text search (uses textScore for ranking)
+        2. Fall back to regex if text search returns nothing
+        """
+        # Attempt text search with relevance scoring
+        try:
+            _ensure_text_index()
+            results = list(
+                db.products.find(
+                    {"$text": {"$search": query_name}},
+                    {"score": {"$meta": "textScore"}},
+                )
+                .sort([("score", {"$meta": "textScore"})])
+                .limit(limit)
+            )
+            if results:
+                for product in results:
+                    product.pop("score", None)
+                    _serialize(product)
+                return results
+        except Exception as e:
+            logger.warning(f"Text search failed, falling back to regex: {e}")
 
-        :param query_name: The name to search for.
-        :return: A list of matching product documents.
-        """
-        # Use MongoDB text search or regex for basic name matching
-        # Case-insensitive search
+        # Fallback: regex search (no relevance ranking, but handles partial matches)
         regex_pattern = {"$regex": query_name, "$options": "i"}
-        products = list(db.products.find({"name": regex_pattern}))
-        
-        # Convert ObjectId to string for JSON serialization
+        products = list(db.products.find({"name": regex_pattern}).limit(limit))
         for product in products:
-            if isinstance(product.get("_id"), ObjectId):
-                product["_id"] = str(product["_id"])
-        
+            _serialize(product)
         return products
 
     @staticmethod
-    def get_all() -> list:
-        """
-        Retrieves all products from the database.
-
-        :return: A list of all product documents.
-        """
-        products = list(db.products.find({}))
+    def get_all(limit: int = 100) -> list:
+        """Return products sorted by most recently updated, with a default limit."""
+        products = list(
+            db.products.find({})
+            .sort("updated_at", -1)
+            .limit(limit)
+        )
         for product in products:
-            if isinstance(product.get("_id"), ObjectId):
-                product["_id"] = str(product["_id"])
+            _serialize(product)
         return products
