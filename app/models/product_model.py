@@ -7,11 +7,28 @@ from app.db import db
 from bson.objectid import ObjectId
 from app.services.logger_service import logger
 
+_text_index_ready = False
+
 
 def _ensure_text_index():
     """Create a compound text index for relevance-ranked search if it doesn't exist."""
-    existing = db.products.index_information()
-    if "search_text" not in existing:
+    global _text_index_ready
+    if _text_index_ready:
+        return
+
+    try:
+        existing = db.products.index_information()
+
+        # Drop any existing text index that isn't ours (MongoDB allows only one)
+        for idx_name, idx_info in existing.items():
+            if idx_name == "search_text":
+                _text_index_ready = True
+                return
+            # Check if it's a text index we need to replace
+            if any(v == "text" for _, v in idx_info.get("key", [])):
+                logger.info(f"Dropping existing text index: {idx_name}")
+                db.products.drop_index(idx_name)
+
         db.products.create_index(
             [
                 ("name", "text"),
@@ -23,13 +40,9 @@ def _ensure_text_index():
             weights={"name": 10, "normalized_name": 8, "brand": 5, "tags": 3},
         )
         logger.info("Created text search index on products collection")
-
-
-# Ensure index exists on module load
-try:
-    _ensure_text_index()
-except Exception as e:
-    logger.warning(f"Could not create text index (will retry on first search): {e}")
+        _text_index_ready = True
+    except Exception as e:
+        logger.warning(f"Could not create text index: {e}")
 
 
 def _serialize(product: dict) -> dict:
