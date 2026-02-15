@@ -170,11 +170,27 @@ class ProductModel:
             return []
 
     @staticmethod
-    def get_categories() -> list:
-        """Return distinct non-null categories sorted alphabetically."""
+    def get_categories(limit: int = 20) -> list:
+        """Return top categories ranked by product count.
+
+        Splits comma-separated category values so each individual
+        category is counted independently (e.g. "Baby & Infant,Medicine"
+        contributes one count to each).
+        """
         try:
-            categories = db.products.distinct("category")
-            return sorted([c for c in categories if c])
+            pipeline = [
+                {"$match": {"category": {"$ne": None, "$ne": ""}}},
+                # Split comma-separated categories into individual values
+                {"$project": {"cats": {"$split": ["$category", ","]}}},
+                {"$unwind": "$cats"},
+                {"$project": {"cat": {"$trim": {"input": "$cats"}}}},
+                {"$match": {"cat": {"$ne": ""}}},
+                {"$group": {"_id": "$cat", "count": {"$sum": 1}}},
+                {"$sort": {"count": -1}},
+                {"$limit": limit},
+            ]
+            results = list(db.products.aggregate(pipeline))
+            return [r["_id"] for r in results]
         except Exception as e:
             logger.warning(f"Failed to get categories: {e}")
             return []
