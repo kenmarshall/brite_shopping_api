@@ -25,7 +25,7 @@ class ProductResource(Resource):
             return ProductModel.get_all(), 200
         except Exception as e:
             logger.error(f"Error occurred while fetching product(s): {e}")
-            return {"message": "An error occurred"}, 500
+            return {"message": "An error occurred", "error": str(e)}, 500
 
     # Expects JSON: {"product_data": {...}, "store_info": {"place_id": ..., ...}, "price": ..., "currency": ...}
     def post(self):
