@@ -42,6 +42,6 @@ if ENV == "development":
 
 # Add an HTTPLogHandler for production or other environments
 if ENV == "production":
-    http_handler = HTTPLogHandler("https://example.com/logs")  # Replace with your log endpoint
+    http_handler = HTTPLogHandler()
     http_handler.setFormatter(formatter)
     logger.addHandler(http_handler)
