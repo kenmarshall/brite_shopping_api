@@ -14,15 +14,26 @@ class ProductResource(Resource):
             # Find by the product id
             if product_id:
                 return ProductModel.get_one(product_id), 200
-            # Find by name
-            name = request.args.get("name")
 
-            if name:
-                products = ProductModel.find_by_name(name)
+            # Check for any search/filter params
+            query = request.args.get("q") or request.args.get("name")
+            category = request.args.get("category")
+            tag = request.args.get("tag")
+            store_id = request.args.get("store_id")
+            limit = request.args.get("limit", 50, type=int)
+
+            if query or category or tag or store_id:
+                products = ProductModel.search(
+                    query=query,
+                    category=category,
+                    tag=tag,
+                    store_id=store_id,
+                    limit=limit,
+                )
                 return products, 200
 
-            # All products - to include pagination or some explore/filtering options
-            return ProductModel.get_all(), 200
+            # No filters — return recent products
+            return ProductModel.get_all(limit=limit), 200
         except Exception as e:
             logger.error(f"Error occurred while fetching product(s): {e}")
             return {"message": "An error occurred", "error": str(e)}, 500

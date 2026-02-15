@@ -117,6 +117,50 @@ class ProductModel:
         return products
 
     @staticmethod
+    def search(query: str = None, category: str = None, tag: str = None, store_id: str = None, limit: int = 50) -> list:
+        """
+        Flexible search combining text search with optional filters.
+        - query: full-text search across name, brand, tags
+        - category: exact match on category field
+        - tag: match within tags array
+        - store_id: filter by store
+        All filters can be combined.
+        """
+        mongo_filter = {}
+        projection = None
+        sort_key = None
+
+        if query:
+            _ensure_text_index()
+            mongo_filter["$text"] = {"$search": query}
+            projection = {"score": {"$meta": "textScore"}}
+            sort_key = [("score", {"$meta": "textScore"})]
+
+        if category:
+            mongo_filter["category"] = {"$regex": category, "$options": "i"}
+
+        if tag:
+            mongo_filter["tags"] = {"$regex": tag, "$options": "i"}
+
+        if store_id:
+            mongo_filter["store_id"] = store_id
+
+        try:
+            cursor = db.products.find(mongo_filter, projection) if projection else db.products.find(mongo_filter)
+            if sort_key:
+                cursor = cursor.sort(sort_key)
+            else:
+                cursor = cursor.sort("updated_at", -1)
+            results = list(cursor.limit(limit))
+            for product in results:
+                product.pop("score", None)
+                _serialize(product)
+            return results
+        except Exception as e:
+            logger.warning(f"Search failed: {e}")
+            return []
+
+    @staticmethod
     def get_all(limit: int = 100) -> list:
         """Return products sorted by most recently updated, with a default limit."""
         products = list(
