@@ -18,12 +18,20 @@ def _ensure_text_index():
 
     try:
         existing = db.products.index_information()
+        _expected_fields = {"name", "normalized_name", "brand", "category", "tags"}
 
-        # Drop any existing text index that isn't ours (MongoDB allows only one)
+        # Drop any existing text index that doesn't match our current schema
         for idx_name, idx_info in existing.items():
             if idx_name == "search_text":
-                _text_index_ready = True
-                return
+                # Verify the index has all expected fields
+                weights = idx_info.get("weights", {})
+                if set(weights.keys()) == _expected_fields:
+                    _text_index_ready = True
+                    return
+                # Index schema changed — drop and recreate
+                logger.info("Text index schema changed, recreating...")
+                db.products.drop_index(idx_name)
+                break
             # Check if it's a text index we need to replace
             if any(v == "text" for _, v in idx_info.get("key", [])):
                 logger.info(f"Dropping existing text index: {idx_name}")
@@ -34,10 +42,11 @@ def _ensure_text_index():
                 ("name", "text"),
                 ("normalized_name", "text"),
                 ("brand", "text"),
+                ("category", "text"),
                 ("tags", "text"),
             ],
             name="search_text",
-            weights={"name": 10, "normalized_name": 8, "brand": 5, "tags": 3},
+            weights={"name": 10, "normalized_name": 8, "brand": 5, "category": 4, "tags": 3},
         )
         logger.info("Created text search index on products collection")
         _text_index_ready = True
@@ -158,6 +167,16 @@ class ProductModel:
             return results
         except Exception as e:
             logger.warning(f"Search failed: {e}")
+            return []
+
+    @staticmethod
+    def get_categories() -> list:
+        """Return distinct non-null categories sorted alphabetically."""
+        try:
+            categories = db.products.distinct("category")
+            return sorted([c for c in categories if c])
+        except Exception as e:
+            logger.warning(f"Failed to get categories: {e}")
             return []
 
     @staticmethod
