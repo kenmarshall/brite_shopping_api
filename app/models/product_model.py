@@ -126,43 +126,79 @@ class ProductModel:
         return products
 
     @staticmethod
+    def _build_extra_filters(category: str = None, tag: str = None, store_id: str = None) -> dict:
+        """Build MongoDB filter clauses for category/tag/store_id."""
+        f = {}
+        if category:
+            f["category"] = {"$regex": category, "$options": "i"}
+        if tag:
+            f["tags"] = {"$regex": tag, "$options": "i"}
+        if store_id:
+            f["store_id"] = store_id
+        return f
+
+    @staticmethod
     def search(query: str = None, category: str = None, tag: str = None, store_id: str = None, limit: int = 50) -> list:
         """
-        Flexible search combining text search with optional filters.
-        - query: full-text search across name, brand, tags
-        - category: exact match on category field
-        - tag: match within tags array
-        - store_id: filter by store
-        All filters can be combined.
+        Forgiving search with two-pass strategy:
+        1. Try MongoDB $text search for full-word relevance ranking
+        2. Fall back to regex prefix matching across name, brand, category, and tags
+        This ensures partial queries like "maca" match "Macaroni".
         """
-        mongo_filter = {}
-        projection = None
-        sort_key = None
+        extra = ProductModel._build_extra_filters(category, tag, store_id)
 
+        # Pass 1: full-text search (works for complete words, ranked by relevance)
         if query:
-            _ensure_text_index()
-            mongo_filter["$text"] = {"$search": query}
-            projection = {"score": {"$meta": "textScore"}}
-            sort_key = [("score", {"$meta": "textScore"})]
+            try:
+                _ensure_text_index()
+                text_filter = {"$text": {"$search": query}, **extra}
+                projection = {"score": {"$meta": "textScore"}}
+                results = list(
+                    db.products.find(text_filter, projection)
+                    .sort([("score", {"$meta": "textScore"})])
+                    .limit(limit)
+                )
+                if results:
+                    for product in results:
+                        product.pop("score", None)
+                        _serialize(product)
+                    return results
+            except Exception as e:
+                logger.warning(f"Text search failed, trying regex: {e}")
 
-        if category:
-            mongo_filter["category"] = {"$regex": category, "$options": "i"}
+        # Pass 2: regex prefix search (handles partial words, typos-ish)
+        if query:
+            import re
+            escaped = re.escape(query)
+            regex = {"$regex": escaped, "$options": "i"}
+            regex_filter = {
+                "$or": [
+                    {"name": regex},
+                    {"normalized_name": regex},
+                    {"brand": regex},
+                    {"category": regex},
+                    {"tags": regex},
+                ],
+                **extra,
+            }
+            try:
+                results = list(
+                    db.products.find(regex_filter)
+                    .sort("updated_at", -1)
+                    .limit(limit)
+                )
+                for product in results:
+                    _serialize(product)
+                return results
+            except Exception as e:
+                logger.warning(f"Regex search failed: {e}")
+                return []
 
-        if tag:
-            mongo_filter["tags"] = {"$regex": tag, "$options": "i"}
-
-        if store_id:
-            mongo_filter["store_id"] = store_id
-
+        # No text query — just apply filters
         try:
-            cursor = db.products.find(mongo_filter, projection) if projection else db.products.find(mongo_filter)
-            if sort_key:
-                cursor = cursor.sort(sort_key)
-            else:
-                cursor = cursor.sort("updated_at", -1)
-            results = list(cursor.limit(limit))
+            cursor = db.products.find(extra) if extra else db.products.find({})
+            results = list(cursor.sort("updated_at", -1).limit(limit))
             for product in results:
-                product.pop("score", None)
                 _serialize(product)
             return results
         except Exception as e:
