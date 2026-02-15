@@ -46,9 +46,19 @@ def _ensure_text_index():
 
 
 def _serialize(product: dict) -> dict:
-    """Convert ObjectId to string for JSON serialization."""
-    if product and isinstance(product.get("_id"), ObjectId):
+    """Make a product document JSON-serializable."""
+    if not product:
+        return product
+    if isinstance(product.get("_id"), ObjectId):
         product["_id"] = str(product["_id"])
+    # Drop embedding vector (768 floats, not needed by clients)
+    product.pop("embedding", None)
+    product.pop("checksum", None)
+    product.pop("aliases", None)
+    # Convert datetimes to ISO strings
+    for key in ("created_at", "updated_at"):
+        if key in product and hasattr(product[key], "isoformat"):
+            product[key] = product[key].isoformat()
     return product
 
 
