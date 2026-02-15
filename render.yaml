@@ -3,7 +3,7 @@ services:
     name: brite-shopping-app # Changed from my-app
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn run:app"
+    startCommand: "gunicorn run:app --bind 0.0.0.0:$PORT"
     healthCheckPath: /health # Added health check path
     envVars:
       - key: FLASK_ENV
