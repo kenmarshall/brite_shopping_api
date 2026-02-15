@@ -15,7 +15,6 @@ Werkzeug==3.0.4
 python-dotenv
 googlemaps
 gunicorn
-requests
 # Testing dependencies
 pytest
 mongomock
