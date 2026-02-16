@@ -9,6 +9,48 @@ from app.models.product_price_model import ProductPriceModel
 
 
 class ProductResource(Resource):
+    @staticmethod
+    def _validate_manual_payload(data):
+        name = str(data.get("name", "")).strip()
+        store_id = str(data.get("store_id", "")).strip().lower()
+        store_name = str(data.get("store_name", "")).strip() or store_id
+        brand = str(data.get("brand", "")).strip() or None
+        category = str(data.get("category", "")).strip() or None
+        currency = str(data.get("currency", "JMD")).strip().upper() or "JMD"
+        size_hint = str(data.get("size_hint", "")).strip() or None
+        image_url = str(data.get("image_url", "")).strip() or None
+        url = str(data.get("url", "")).strip() or None
+
+        if len(name) < 2:
+            return None, {"message": "Product name must be at least 2 characters"}, 400
+        if not store_id:
+            return None, {"message": "store_id is required"}, 400
+
+        raw_price = data.get("price")
+        try:
+            price = float(raw_price)
+        except (TypeError, ValueError):
+            return None, {"message": "price is required and must be a number"}, 400
+        if price <= 0:
+            return None, {"message": "price must be greater than 0"}, 400
+
+        if len(currency) != 3:
+            return None, {"message": "currency must be a 3-letter code"}, 400
+
+        payload = {
+            "name": name,
+            "store_id": store_id,
+            "store_name": store_name,
+            "price": price,
+            "currency": currency,
+            "brand": brand,
+            "category": category,
+            "size_hint": size_hint,
+            "image_url": image_url,
+            "url": url,
+        }
+        return payload, None, None
+
     def get(self, product_id=None):
         try:
             # Find by the product id
@@ -41,7 +83,22 @@ class ProductResource(Resource):
     # Expects JSON: {"product_data": {...}, "store_info": {"place_id": ..., ...}, "price": ..., "currency": ...}
     def post(self):
         try:
-            data = request.get_json()
+            data = request.get_json() or {}
+
+            # New mobile/manual flow:
+            # {"name": "...", "store_id": "hilo", "store_name": "...", "price": 120.0, ...}
+            # Keep legacy flow below for backwards compatibility.
+            if "product_data" not in data and "store_info" not in data:
+                payload, error_body, error_code = self._validate_manual_payload(data)
+                if error_body:
+                    return error_body, error_code
+
+                product_id, created = ProductModel.upsert_manual_entry(**payload)
+                return {
+                    "message": "Product created" if created else "Product updated",
+                    "product_id": str(product_id),
+                    "store_id": payload["store_id"],
+                }, 201 if created else 200
 
             product_data = data.get("product_data")
             store_info = data.get("store_info")

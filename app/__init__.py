@@ -7,6 +7,7 @@ from .resources.product_price_resource import ProductPriceListResource
 from .resources.store_resource import StoreResource
 from .resources.store_search_resource import StoreSearchResource
 from .resources.category_resource import CategoryResource
+from .resources.product_store_resource import ProductStoreResource
 from .services.logger_service import logger
 
 
@@ -23,6 +24,7 @@ def create_app_internal(flask_env):
     api.add_resource(StoreSearchResource, "/stores/search")
     api.add_resource(ProductPriceListResource, "/products/<string:product_id>/prices")
     api.add_resource(CategoryResource, "/categories")
+    api.add_resource(ProductStoreResource, "/product-stores")
 
     return app
 

@@ -88,6 +88,54 @@ class TestProductResourcePost(unittest.TestCase):
             str(mock_existing_product_id), str(mock_store_id), payload["price"], payload["currency"]
         )
 
+    @patch('app.resources.product_resource.ProductModel')
+    def test_post_manual_payload_created(self, mock_ProductModel):
+        app = Flask(__name__)
+        payload = {
+            "name": "Grace Sardines 155g",
+            "store_id": "hilo",
+            "store_name": "Hi-Lo Food Stores",
+            "price": 450.0,
+            "currency": "JMD",
+            "brand": "Grace",
+            "category": "Canned Goods",
+        }
+
+        mock_product_id = ObjectId()
+        mock_ProductModel.upsert_manual_entry.return_value = (mock_product_id, True)
+
+        resource = ProductResource()
+        with app.test_request_context(json=payload):
+            response, status_code = resource.post()
+
+        self.assertEqual(status_code, 201)
+        self.assertEqual(response["message"], "Product created")
+        self.assertEqual(response["product_id"], str(mock_product_id))
+        self.assertEqual(response["store_id"], "hilo")
+        mock_ProductModel.upsert_manual_entry.assert_called_once()
+
+    @patch('app.resources.product_resource.ProductModel')
+    def test_post_manual_payload_updated(self, mock_ProductModel):
+        app = Flask(__name__)
+        payload = {
+            "name": "Grace Sardines 155g",
+            "store_id": "hilo",
+            "price": 425.0,
+        }
+
+        mock_product_id = ObjectId()
+        mock_ProductModel.upsert_manual_entry.return_value = (mock_product_id, False)
+
+        resource = ProductResource()
+        with app.test_request_context(json=payload):
+            response, status_code = resource.post()
+
+        self.assertEqual(status_code, 200)
+        self.assertEqual(response["message"], "Product updated")
+        self.assertEqual(response["product_id"], str(mock_product_id))
+        self.assertEqual(response["store_id"], "hilo")
+        mock_ProductModel.upsert_manual_entry.assert_called_once()
+
     @patch('app.resources.product_resource.StoreModel')
     def test_post_invalid_request_missing_place_id(self, mock_StoreModel):
         app = Flask(__name__)
@@ -129,6 +177,35 @@ class TestProductResourcePost(unittest.TestCase):
         self.assertEqual(status_code, 400)
         self.assertIn("Price is required and must be a number", response["message"])
         mock_StoreModel.get_or_create.assert_not_called()
+
+    @patch('app.resources.product_resource.ProductModel')
+    def test_post_manual_invalid_request_missing_store_id(self, mock_ProductModel):
+        app = Flask(__name__)
+        payload = {
+            "name": "Test Product",
+            "price": 99.0,
+        }
+        resource = ProductResource()
+        with app.test_request_context(json=payload):
+            response, status_code = resource.post()
+        self.assertEqual(status_code, 400)
+        self.assertIn("store_id is required", response["message"])
+        mock_ProductModel.upsert_manual_entry.assert_not_called()
+
+    @patch('app.resources.product_resource.ProductModel')
+    def test_post_manual_invalid_request_invalid_price(self, mock_ProductModel):
+        app = Flask(__name__)
+        payload = {
+            "name": "Test Product",
+            "store_id": "hilo",
+            "price": "invalid",
+        }
+        resource = ProductResource()
+        with app.test_request_context(json=payload):
+            response, status_code = resource.post()
+        self.assertEqual(status_code, 400)
+        self.assertIn("price is required and must be a number", response["message"])
+        mock_ProductModel.upsert_manual_entry.assert_not_called()
 
 
     @patch('app.resources.product_resource.ProductPriceModel')

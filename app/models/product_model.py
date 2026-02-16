@@ -2,12 +2,77 @@
 ProductModel: methods for interacting with the 'products' collection in MongoDB.
 """
 
+import hashlib
+import re
+from datetime import datetime, timezone
 from typing import Optional
 from app.db import db
 from bson.objectid import ObjectId
 from app.services.logger_service import logger
 
 _text_index_ready = False
+_SIZE_PATTERN = re.compile(
+    r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>ml|l|litre|liter|g|kg|oz|fl\s*oz|lb|lbs|pk|pack|packs|ct|count)",
+    re.IGNORECASE,
+)
+
+
+def _clean_optional_text(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned or None
+
+
+def _normalize_name(name: str) -> str:
+    lowered = str(name).lower()
+    lowered = re.sub(r"[^a-z0-9\s]", " ", lowered)
+    return re.sub(r"\s+", " ", lowered).strip()
+
+
+def _normalize_unit(unit: str) -> str:
+    compact = unit.lower().replace(" ", "")
+    mapping = {
+        "litre": "l",
+        "liter": "l",
+        "floz": "oz",
+        "lbs": "lb",
+        "packs": "pack",
+        "pk": "pack",
+        "count": "ct",
+    }
+    return mapping.get(compact, compact)
+
+
+def _parse_size(text: Optional[str]) -> dict:
+    if not text:
+        return {"value": None, "unit": None}
+    match = _SIZE_PATTERN.search(text)
+    if not match:
+        return {"value": None, "unit": None}
+    try:
+        value = float(match.group("value"))
+    except Exception:
+        value = None
+    unit = _normalize_unit(match.group("unit"))
+    return {"value": value, "unit": unit}
+
+
+def _build_match_key(normalized_name: str, brand: Optional[str], size: dict) -> str:
+    payload = f"{normalized_name}|{brand or ''}|{size.get('value') or ''}|{size.get('unit') or ''}"
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _build_checksum(
+    store_id: str,
+    normalized_name: str,
+    brand: Optional[str],
+    size: dict,
+) -> str:
+    payload = (
+        f"{store_id}|{normalized_name}|{brand or ''}|{size.get('value') or ''}|{size.get('unit') or ''}"
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def _ensure_text_index():
@@ -86,6 +151,119 @@ class ProductModel:
         else:
             result = db.products.insert_one(data)
             return result.inserted_id
+
+    @staticmethod
+    def upsert_manual_entry(
+        *,
+        name: str,
+        store_id: str,
+        store_name: Optional[str],
+        price: float,
+        currency: str = "JMD",
+        brand: Optional[str] = None,
+        category: Optional[str] = None,
+        url: Optional[str] = None,
+        image_url: Optional[str] = None,
+        size_hint: Optional[str] = None,
+    ) -> tuple[ObjectId, bool]:
+        normalized_name = _normalize_name(name)
+        normalized_brand = _clean_optional_text(brand)
+        normalized_category = _clean_optional_text(category)
+        normalized_store_name = _clean_optional_text(store_name) or store_id
+        normalized_url = _clean_optional_text(url) or f"manual://{store_id}"
+        normalized_image_url = _clean_optional_text(image_url)
+        normalized_currency = (currency or "JMD").strip().upper()
+        parsed_size = _parse_size(size_hint or name)
+        match_key = _build_match_key(normalized_name, normalized_brand, parsed_size)
+        checksum = _build_checksum(store_id, normalized_name, normalized_brand, parsed_size)
+        now = datetime.now(timezone.utc)
+
+        location_price = {
+            "location_id": store_id,
+            "store_name": normalized_store_name,
+            "amount": float(price),
+            "currency": normalized_currency,
+            "last_seen_at": now,
+        }
+
+        existing = db.products.find_one({"match_key": match_key})
+        if existing is None:
+            fallback_query = {"normalized_name": normalized_name}
+            if normalized_brand:
+                fallback_query["brand"] = {"$in": [normalized_brand, None, ""]}
+            existing = db.products.find_one(fallback_query)
+
+        if existing:
+            location_prices = existing.get("location_prices") or []
+            updated_existing_location = False
+            for index, current in enumerate(location_prices):
+                if current.get("location_id") == store_id:
+                    location_prices[index] = location_price
+                    updated_existing_location = True
+                    break
+            if not updated_existing_location:
+                location_prices.append(location_price)
+
+            amounts: list[float] = []
+            for item in location_prices:
+                amount = item.get("amount")
+                try:
+                    amounts.append(float(amount))
+                except Exception:
+                    continue
+            estimated_price = round(sum(amounts) / len(amounts), 2) if amounts else None
+
+            updates = {
+                "location_prices": location_prices,
+                "estimated_price": estimated_price,
+                "updated_at": now,
+            }
+
+            if normalized_brand and not existing.get("brand"):
+                updates["brand"] = normalized_brand
+            if normalized_category and not existing.get("category"):
+                updates["category"] = normalized_category
+            if normalized_image_url and not existing.get("image_url"):
+                updates["image_url"] = normalized_image_url
+            existing_url = existing.get("url")
+            if normalized_url and (not existing_url or str(existing_url).startswith("manual://")):
+                updates["url"] = normalized_url
+            if not existing.get("checksum"):
+                updates["checksum"] = checksum
+            if not existing.get("match_key"):
+                updates["match_key"] = match_key
+            if normalized_category:
+                tags = existing.get("tags") or []
+                category_tag = normalized_category.lower()
+                if category_tag not in tags:
+                    tags.append(category_tag)
+                    updates["tags"] = tags
+
+            db.products.update_one({"_id": existing["_id"]}, {"$set": updates})
+            return existing["_id"], False
+
+        payload = {
+            "store_id": store_id,
+            "store_name": normalized_store_name,
+            "location_prices": [location_price],
+            "estimated_price": float(price),
+            "name": name.strip(),
+            "normalized_name": normalized_name,
+            "brand": normalized_brand,
+            "size": parsed_size,
+            "category": normalized_category,
+            "tags": [normalized_category.lower()] if normalized_category else [],
+            "aliases": [],
+            "url": normalized_url,
+            "image_url": normalized_image_url,
+            "embedding": None,
+            "created_at": now,
+            "updated_at": now,
+            "checksum": checksum,
+            "match_key": match_key,
+        }
+        result = db.products.insert_one(payload)
+        return result.inserted_id, True
 
     @staticmethod
     def get_one(product_id: str) -> Optional[dict]:
