@@ -11,8 +11,18 @@ from bson.objectid import ObjectId
 from app.services.logger_service import logger
 
 _text_index_ready = False
+_MEASURE_UNITS = r"ml|l|litre|liter|g|kg|oz|fl\s*oz|lb|lbs|gal|gallon|gallons|pt|pint|pints|qt|quart|quarts|cl|mg"
+_COUNT_UNITS = r"packs?|pk|ct|count"
 _SIZE_PATTERN = re.compile(
-    r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>ml|l|litre|liter|g|kg|oz|fl\s*oz|lb|lbs|pk|pack|packs|ct|count)",
+    r"(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>ml|l|litre|liter|g|kg|oz|fl\s*oz|lb|lbs|gal|gallon|gallons|pt|pint|pints|qt|quart|quarts|cl|mg|pk|pack|packs|ct|count)",
+    re.IGNORECASE,
+)
+_MULTIPACK_PATTERN = re.compile(
+    rf"\b(?P<count>\d+)\s*[xX]\s*(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>{_MEASURE_UNITS})\b",
+    re.IGNORECASE,
+)
+_PACK_COUNT_PATTERN = re.compile(
+    rf"\b(?:pack\s*of\s*(?P<count_a>\d+)|(?P<count_b>\d+)\s*(?:{_COUNT_UNITS}))\b",
     re.IGNORECASE,
 )
 
@@ -40,26 +50,64 @@ def _normalize_unit(unit: str) -> str:
         "packs": "pack",
         "pk": "pack",
         "count": "ct",
+        "gallon": "gal",
+        "gallons": "gal",
+        "pint": "pt",
+        "pints": "pt",
+        "quart": "qt",
+        "quarts": "qt",
     }
     return mapping.get(compact, compact)
 
 
 def _parse_size(text: Optional[str]) -> dict:
     if not text:
-        return {"value": None, "unit": None}
+        return {"value": None, "unit": None, "pack_count": None}
+
+    # Check for multipack pattern first (e.g. "6x330ml", "10 x 20g")
+    multipack_match = _MULTIPACK_PATTERN.search(text)
+    if multipack_match:
+        try:
+            count = int(multipack_match.group("count"))
+        except Exception:
+            count = None
+        try:
+            value = float(multipack_match.group("value"))
+        except Exception:
+            value = None
+        unit = _normalize_unit(multipack_match.group("unit"))
+        return {"value": value, "unit": unit, "pack_count": count}
+
+    # Check for pack count phrases (e.g. "pack of 6", "12pk")
+    pack_count = None
+    pack_match = _PACK_COUNT_PATTERN.search(text)
+    if pack_match:
+        count_raw = pack_match.group("count_a") or pack_match.group("count_b")
+        if count_raw:
+            try:
+                pack_count = int(count_raw)
+            except Exception:
+                pass
+
+    # Standard size pattern
     match = _SIZE_PATTERN.search(text)
     if not match:
-        return {"value": None, "unit": None}
+        if pack_count is not None:
+            return {"value": None, "unit": None, "pack_count": pack_count}
+        return {"value": None, "unit": None, "pack_count": None}
     try:
         value = float(match.group("value"))
     except Exception:
         value = None
     unit = _normalize_unit(match.group("unit"))
-    return {"value": value, "unit": unit}
+    return {"value": value, "unit": unit, "pack_count": pack_count}
 
 
 def _build_match_key(normalized_name: str, brand: Optional[str], size: dict) -> str:
-    payload = f"{normalized_name}|{brand or ''}|{size.get('value') or ''}|{size.get('unit') or ''}"
+    payload = (
+        f"{normalized_name}|{brand or ''}|{size.get('value') or ''}|"
+        f"{size.get('unit') or ''}|{size.get('pack_count') or ''}"
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -70,7 +118,8 @@ def _build_checksum(
     size: dict,
 ) -> str:
     payload = (
-        f"{store_id}|{normalized_name}|{brand or ''}|{size.get('value') or ''}|{size.get('unit') or ''}"
+        f"{store_id}|{normalized_name}|{brand or ''}|{size.get('value') or ''}|"
+        f"{size.get('unit') or ''}|{size.get('pack_count') or ''}"
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 

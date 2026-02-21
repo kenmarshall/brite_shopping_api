@@ -8,6 +8,8 @@ from .resources.store_resource import StoreResource
 from .resources.store_search_resource import StoreSearchResource
 from .resources.category_resource import CategoryResource
 from .resources.product_store_resource import ProductStoreResource
+from .resources.device_resource import DeviceResource, DeviceShoppingListResource
+from .middleware.api_key import require_api_key
 from .services.logger_service import logger
 
 
@@ -15,6 +17,8 @@ from .services.logger_service import logger
 def create_app_internal(flask_env):
     app = Flask(__name__)
     logger.info(f"Starting app in {flask_env} environment.")
+
+    require_api_key(app)
 
     api = Api(app)
 
@@ -25,6 +29,8 @@ def create_app_internal(flask_env):
     api.add_resource(ProductPriceListResource, "/products/<string:product_id>/prices")
     api.add_resource(CategoryResource, "/categories")
     api.add_resource(ProductStoreResource, "/product-stores")
+    api.add_resource(DeviceResource, "/devices")
+    api.add_resource(DeviceShoppingListResource, "/devices/<string:device_id>/shopping-list")
 
     return app
 
