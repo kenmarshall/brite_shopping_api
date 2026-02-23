@@ -9,6 +9,7 @@ from .resources.store_search_resource import StoreSearchResource
 from .resources.category_resource import CategoryResource
 from .resources.product_store_resource import ProductStoreResource
 from .resources.device_resource import DeviceResource, DeviceShoppingListResource
+from .resources.barcode_resource import BarcodeResource
 from .middleware.api_key import require_api_key
 from .services.logger_service import logger
 
@@ -31,6 +32,7 @@ def create_app_internal(flask_env):
     api.add_resource(ProductStoreResource, "/product-stores")
     api.add_resource(DeviceResource, "/devices")
     api.add_resource(DeviceShoppingListResource, "/devices/<string:device_id>/shopping-list")
+    api.add_resource(BarcodeResource, "/barcodes/<string:barcode>")
 
     return app
 

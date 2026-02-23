@@ -9,6 +9,7 @@ from typing import Optional
 from app.db import db
 from bson.objectid import ObjectId
 from app.services.logger_service import logger
+from app.services.store_visibility import get_hidden_store_ids
 
 _text_index_ready = False
 _MEASURE_UNITS = r"ml|l|litre|liter|g|kg|oz|fl\s*oz|lb|lbs|gal|gallon|gallons|pt|pint|pints|qt|quart|quarts|cl|mg"
@@ -168,7 +169,7 @@ def _ensure_text_index():
         logger.warning(f"Could not create text index: {e}")
 
 
-def _serialize(product: dict) -> dict:
+def _serialize(product: dict, hidden_stores: set | None = None) -> dict:
     """Make a product document JSON-serializable."""
     if not product:
         return product
@@ -182,6 +183,12 @@ def _serialize(product: dict) -> dict:
     for key in ("created_at", "updated_at"):
         if key in product and hasattr(product[key], "isoformat"):
             product[key] = product[key].isoformat()
+    # Filter out hidden store prices
+    if hidden_stores and "location_prices" in product:
+        product["location_prices"] = [
+            lp for lp in product["location_prices"]
+            if lp.get("location_id") not in hidden_stores
+        ]
     return product
 
 
@@ -317,7 +324,7 @@ class ProductModel:
     @staticmethod
     def get_one(product_id: str) -> Optional[dict]:
         product = db.products.find_one({"_id": ObjectId(product_id)})
-        return _serialize(product) if product else None
+        return _serialize(product, get_hidden_store_ids()) if product else None
 
     @staticmethod
     def find_by_name(query_name: str, limit: int = 50) -> list:
@@ -326,6 +333,7 @@ class ProductModel:
         1. Try MongoDB $text search (uses textScore for ranking)
         2. Fall back to regex if text search returns nothing
         """
+        hidden = get_hidden_store_ids()
         # Attempt text search with relevance scoring
         try:
             _ensure_text_index()
@@ -340,7 +348,7 @@ class ProductModel:
             if results:
                 for product in results:
                     product.pop("score", None)
-                    _serialize(product)
+                    _serialize(product, hidden)
                 return results
         except Exception as e:
             logger.warning(f"Text search failed, falling back to regex: {e}")
@@ -349,7 +357,7 @@ class ProductModel:
         regex_pattern = {"$regex": query_name, "$options": "i"}
         products = list(db.products.find({"name": regex_pattern}).limit(limit))
         for product in products:
-            _serialize(product)
+            _serialize(product, hidden)
         return products
 
     @staticmethod
@@ -373,6 +381,7 @@ class ProductModel:
         This ensures partial queries like "maca" match "Macaroni".
         """
         extra = ProductModel._build_extra_filters(category, tag, store_id)
+        hidden = get_hidden_store_ids()
 
         # Pass 1: full-text search (works for complete words, ranked by relevance)
         if query:
@@ -388,7 +397,7 @@ class ProductModel:
                 if results:
                     for product in results:
                         product.pop("score", None)
-                        _serialize(product)
+                        _serialize(product, hidden)
                     return results
             except Exception as e:
                 logger.warning(f"Text search failed, trying regex: {e}")
@@ -415,7 +424,7 @@ class ProductModel:
                     .limit(limit)
                 )
                 for product in results:
-                    _serialize(product)
+                    _serialize(product, hidden)
                 return results
             except Exception as e:
                 logger.warning(f"Regex search failed: {e}")
@@ -426,7 +435,7 @@ class ProductModel:
             cursor = db.products.find(extra) if extra else db.products.find({})
             results = list(cursor.sort("updated_at", -1).limit(limit))
             for product in results:
-                _serialize(product)
+                _serialize(product, hidden)
             return results
         except Exception as e:
             logger.warning(f"Search failed: {e}")
@@ -461,11 +470,12 @@ class ProductModel:
     @staticmethod
     def get_all(limit: int = 100) -> list:
         """Return products sorted by most recently updated, with a default limit."""
+        hidden = get_hidden_store_ids()
         products = list(
             db.products.find({})
             .sort("updated_at", -1)
             .limit(limit)
         )
         for product in products:
-            _serialize(product)
+            _serialize(product, hidden)
         return products
