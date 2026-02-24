@@ -86,3 +86,14 @@ class BarcodeResource(Resource):
         except Exception as e:
             logger.error(f"Barcode link error for {barcode}: {e}")
             return {"message": "An error occurred"}, 500
+
+    def delete(self, barcode):
+        """Unlink a barcode (remove the mapping)."""
+        try:
+            result = db.barcode_mappings.delete_one({"barcode": barcode})
+            if result.deleted_count == 0:
+                return {"message": "Barcode mapping not found"}, 404
+            return {"message": "Barcode unlinked", "barcode": barcode}, 200
+        except Exception as e:
+            logger.error(f"Barcode unlink error for {barcode}: {e}")
+            return {"message": "An error occurred"}, 500
