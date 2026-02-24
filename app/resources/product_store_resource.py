@@ -6,17 +6,24 @@ from app.services.store_visibility import get_hidden_store_ids
 
 
 def _get_excluded_store_ids() -> set[str]:
-    """Return store_ids that are hidden or not entity_type='store'."""
+    """Return store_ids that are hidden or not entity_type='store'.
+
+    Includes both the source_id (e.g. 'grace') and the catalog_id (e.g. 'grace-foods')
+    so products stored under either name are properly filtered out.
+    """
     excluded: set[str] = set()
-    for doc in db.store_settings.find({}, {"store_id": 1, "visible": 1, "entity_type": 1}):
+    for doc in db.store_settings.find(
+        {}, {"store_id": 1, "catalog_id": 1, "visible": 1, "entity_type": 1}
+    ):
         sid = doc.get("store_id")
         if not sid:
             continue
-        if not doc.get("visible", True):
+        should_exclude = not doc.get("visible", True) or doc.get("entity_type", "store") != "store"
+        if should_exclude:
             excluded.add(sid)
-        entity_type = doc.get("entity_type", "store")
-        if entity_type != "store":
-            excluded.add(sid)
+            catalog_id = doc.get("catalog_id")
+            if catalog_id and catalog_id != sid:
+                excluded.add(catalog_id)
     return excluded
 
 
