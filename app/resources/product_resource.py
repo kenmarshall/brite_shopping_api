@@ -138,6 +138,8 @@ class ProductResource(Resource):
 
                 # Check for existing product by normalized name
                 normalized = name.strip().lower()
+                price = model_fields.get("price")  # already parsed float or None
+
                 existing = db.products.find_one({"normalized_name": normalized})
                 if existing:
                     updates = {"updated_at": now}
@@ -147,6 +149,9 @@ class ProductResource(Resource):
                         updates["category"] = category
                     if image_url and not existing.get("image_url"):
                         updates["image_url"] = image_url
+                    # Set estimated_price only if not already set and price was provided
+                    if price and price > 0 and not existing.get("estimated_price"):
+                        updates["estimated_price"] = price
                     db.products.update_one({"_id": existing["_id"]}, {"$set": updates})
                     return {
                         "message": "Product already exists",
@@ -162,7 +167,7 @@ class ProductResource(Resource):
                     "tags": [category.lower()] if category else [],
                     "aliases": [],
                     "location_prices": [],
-                    "estimated_price": None,
+                    "estimated_price": price if (price and price > 0) else None,
                     "image_url": image_url,
                     "url": model_fields.get("url"),
                     "embedding": None,
