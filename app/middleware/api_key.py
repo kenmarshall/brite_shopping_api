@@ -5,7 +5,8 @@ from flask import jsonify, request
 BRITE_API_KEY = os.environ.get("BRITE_API_KEY", "")
 
 # Paths that don't require an API key
-EXEMPT_PATHS = frozenset({"/", "/health"})
+EXEMPT_PATHS = frozenset({"/", "/health", "/privacy"})
+EXEMPT_PREFIXES = ("/static/",)
 
 
 def require_api_key(app):
@@ -18,6 +19,9 @@ def require_api_key(app):
             return None
 
         if request.path in EXEMPT_PATHS:
+            return None
+
+        if request.path.startswith(EXEMPT_PREFIXES):
             return None
 
         provided = request.headers.get("X-API-Key", "")

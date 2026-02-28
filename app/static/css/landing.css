@@ -1,0 +1,21 @@
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Subtle fade-in on scroll (optional enhancement) */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Offset anchor scroll for fixed nav */
+[id] {
+  scroll-margin-top: 5rem;
+}

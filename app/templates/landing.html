@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brite Shopping — Compare Grocery Prices Across Jamaica</title>
+  <meta name="description" content="Find the best grocery prices across Jamaican stores. Compare prices from Hi-Lo, ShopSampars, Store To Door, CoolMarket and more — all in one app.">
+  <meta name="keywords" content="Jamaica grocery prices, compare prices, shopping, Hi-Lo, supermarket, barcode scanner, savings">
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Brite Shopping — Jamaica Grocery Prices">
+  <meta property="og:description" content="Compare grocery prices across Jamaican stores. Save money every trip.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://brite-shopping-app.onrender.com">
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: '#0a7ea4', light: '#4dc9f6', dark: '#07556f' },
+            surface: '#f5f8fa',
+          },
+          fontFamily: {
+            display: ['"Inter"', 'system-ui', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+
+<body class="font-display text-gray-900 antialiased">
+
+  <!-- ───────── NAV ───────── -->
+  <nav class="fixed top-0 w-full bg-white/80 backdrop-blur-md z-50 border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <!-- Logo -->
+      <a href="#" class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-brand flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+          </svg>
+        </div>
+        <span class="text-lg font-bold text-gray-900">Brite <span class="text-brand">Shopping</span></span>
+      </a>
+
+      <!-- Desktop links -->
+      <div class="hidden sm:flex items-center gap-8 text-sm font-medium text-gray-600">
+        <a href="#features" class="hover:text-brand transition">Features</a>
+        <a href="#how-it-works" class="hover:text-brand transition">How It Works</a>
+        <a href="#download" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-brand text-white text-sm font-semibold hover:bg-brand-dark transition">
+          Download App
+        </a>
+      </div>
+
+      <!-- Mobile menu button -->
+      <button id="menu-btn" class="sm:hidden p-2 -mr-2 text-gray-600" aria-label="Toggle menu">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Mobile dropdown -->
+    <div id="mobile-menu" class="hidden sm:hidden border-t border-gray-100 bg-white px-4 pb-4 pt-2 space-y-3">
+      <a href="#features" class="block text-sm font-medium text-gray-600 hover:text-brand">Features</a>
+      <a href="#how-it-works" class="block text-sm font-medium text-gray-600 hover:text-brand">How It Works</a>
+      <a href="#download" class="block text-center px-4 py-2.5 rounded-full bg-brand text-white text-sm font-semibold">Download App</a>
+    </div>
+  </nav>
+
+  <!-- ───────── HERO ───────── -->
+  <section class="relative pt-32 pb-20 sm:pt-40 sm:pb-28 overflow-hidden">
+    <!-- Background gradient -->
+    <div class="absolute inset-0 bg-gradient-to-br from-surface via-white to-brand/5 -z-10"></div>
+    <div class="absolute top-20 right-0 w-96 h-96 bg-brand/10 rounded-full blur-3xl -z-10"></div>
+
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="grid lg:grid-cols-2 gap-12 items-center">
+        <!-- Copy -->
+        <div class="max-w-xl">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand/10 text-brand text-xs font-semibold mb-6">
+            <span class="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"></span>
+            Now live in Jamaica
+          </div>
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
+            Compare Grocery Prices
+            <span class="text-brand"> Across Jamaica</span>
+          </h1>
+          <p class="mt-5 text-lg text-gray-600 leading-relaxed">
+            Stop overpaying for groceries. Search thousands of products, compare prices from multiple stores, and find the best deals &mdash; all from your phone.
+          </p>
+
+          <!-- CTA buttons -->
+          <div class="mt-8 flex flex-wrap gap-3">
+            <a href="#download" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition shadow-lg shadow-gray-900/20">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+              App Store
+            </a>
+            <a href="#download" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-dark transition shadow-lg shadow-brand/20">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 010 1.38l-2.302 2.302L15.396 13l2.302-2.492zM5.864 2.658L16.8 9.291l-2.302 2.302L5.864 2.658z"/></svg>
+              Google Play
+            </a>
+          </div>
+
+          <!-- Social proof -->
+          <p class="mt-6 text-sm text-gray-500">
+            <span class="font-semibold text-gray-700">7,500+</span> products &bull;
+            <span class="font-semibold text-gray-700">5+</span> stores &bull;
+            All prices in <span class="font-semibold text-gray-700">JMD</span>
+          </p>
+        </div>
+
+        <!-- Phone mockup placeholder -->
+        <div class="hidden lg:flex justify-center">
+          <div class="relative w-72">
+            <div class="w-72 h-[580px] rounded-[3rem] bg-gray-900 shadow-2xl p-3">
+              <div class="w-full h-full rounded-[2.4rem] bg-gradient-to-b from-surface to-white flex flex-col items-center justify-center text-center px-6">
+                <div class="w-16 h-16 rounded-2xl bg-brand/10 flex items-center justify-center mb-4">
+                  <svg class="w-9 h-9 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+                  </svg>
+                </div>
+                <p class="text-sm font-semibold text-gray-900">Search &amp; Compare</p>
+                <p class="text-xs text-gray-500 mt-1">Prices from stores across Jamaica</p>
+
+                <!-- Mini product cards -->
+                <div class="mt-6 w-full space-y-2.5">
+                  <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-left">
+                    <p class="text-xs font-semibold text-gray-800 truncate">Grace Coconut Milk 400ml</p>
+                    <div class="flex items-center justify-between mt-1">
+                      <span class="text-xs text-brand font-bold">J$285</span>
+                      <span class="text-[10px] text-gray-400">3 stores</span>
+                    </div>
+                  </div>
+                  <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-left">
+                    <p class="text-xs font-semibold text-gray-800 truncate">Serge Island Milk 1L</p>
+                    <div class="flex items-center justify-between mt-1">
+                      <span class="text-xs text-brand font-bold">J$520</span>
+                      <span class="text-[10px] text-gray-400">2 stores</span>
+                    </div>
+                  </div>
+                  <div class="bg-white rounded-xl p-3 shadow-sm border border-gray-100 text-left">
+                    <p class="text-xs font-semibold text-gray-800 truncate">Lasco Food Drink Creamy</p>
+                    <div class="flex items-center justify-between mt-1">
+                      <span class="text-xs text-brand font-bold">J$150</span>
+                      <span class="text-[10px] text-gray-400">4 stores</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Glow -->
+            <div class="absolute -bottom-8 left-1/2 -translate-x-1/2 w-48 h-12 bg-brand/20 rounded-full blur-2xl"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── STORES STRIP ───────── -->
+  <section class="py-12 bg-white border-y border-gray-100">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 text-center">
+      <p class="text-sm font-medium text-gray-400 uppercase tracking-wider mb-8">Prices from stores you already shop at</p>
+      <div class="flex flex-wrap items-center justify-center gap-x-10 gap-y-4">
+        <span class="text-lg font-bold text-gray-300 hover:text-gray-500 transition">Hi-Lo</span>
+        <span class="text-lg font-bold text-gray-300 hover:text-gray-500 transition">ShopSampars</span>
+        <span class="text-lg font-bold text-gray-300 hover:text-gray-500 transition">Store To Door</span>
+        <span class="text-lg font-bold text-gray-300 hover:text-gray-500 transition">CoolMarket</span>
+        <span class="text-lg font-bold text-gray-300 hover:text-gray-500 transition">PriceSmart</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── FEATURES ───────── -->
+  <section id="features" class="py-20 sm:py-28 bg-surface">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Everything you need to <span class="text-brand">shop smarter</span></h2>
+        <p class="mt-4 text-gray-600">One app to search, compare, and save on your weekly groceries.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Feature 1 -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition">
+          <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+            <svg class="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-bold mb-2">Multi-Store Search</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">Search across Hi-Lo, ShopSampars, Store To Door, CoolMarket and more. See who has the best price for any product.</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition">
+          <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+            <svg class="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-bold mb-2">Barcode Scanner</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">Scan any product barcode while in-store. Instantly see prices at other locations so you know you're getting a fair deal.</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 hover:shadow-md transition">
+          <div class="w-12 h-12 rounded-xl bg-brand/10 flex items-center justify-center mb-5">
+            <svg class="w-6 h-6 text-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15a2.25 2.25 0 012.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V19.5a2.25 2.25 0 002.25 2.25h.75m0-3H18"/>
+            </svg>
+          </div>
+          <h3 class="text-lg font-bold mb-2">Shopping Lists</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">Build your shopping list and keep track of what you need. Plan your trips and never forget an item again.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── HOW IT WORKS ───────── -->
+  <section id="how-it-works" class="py-20 sm:py-28 bg-white">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="text-center max-w-2xl mx-auto mb-16">
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight">How it works</h2>
+        <p class="mt-4 text-gray-600">Three simple steps to start saving on groceries.</p>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-8">
+        <!-- Step 1 -->
+        <div class="text-center">
+          <div class="w-14 h-14 rounded-2xl bg-brand text-white text-xl font-bold flex items-center justify-center mx-auto mb-5 shadow-lg shadow-brand/20">1</div>
+          <h3 class="text-lg font-bold mb-2">Search</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">Type a product name or scan a barcode. Our catalog covers thousands of Jamaican grocery products.</p>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="text-center">
+          <div class="w-14 h-14 rounded-2xl bg-brand text-white text-xl font-bold flex items-center justify-center mx-auto mb-5 shadow-lg shadow-brand/20">2</div>
+          <h3 class="text-lg font-bold mb-2">Compare</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">See the estimated price and every store that carries it. Find out who has the best deal instantly.</p>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="text-center">
+          <div class="w-14 h-14 rounded-2xl bg-brand text-white text-xl font-bold flex items-center justify-center mx-auto mb-5 shadow-lg shadow-brand/20">3</div>
+          <h3 class="text-lg font-bold mb-2">Save</h3>
+          <p class="text-gray-600 text-sm leading-relaxed">Choose the cheapest option, build your list, and shop with confidence. Every dollar counts.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── CTA / DOWNLOAD ───────── -->
+  <section id="download" class="py-20 sm:py-28 relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-brand-dark via-brand to-brand-light -z-10"></div>
+    <div class="absolute top-0 right-0 w-96 h-96 bg-white/10 rounded-full blur-3xl -z-10"></div>
+
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">Start saving on groceries today</h2>
+      <p class="mt-4 text-lg text-white/80">Download Brite Shopping for free. No account required.</p>
+
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        <a href="#" class="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-white text-gray-900 text-sm font-semibold hover:bg-gray-100 transition shadow-lg">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          Download for iPhone
+        </a>
+        <a href="#" class="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-white/15 text-white text-sm font-semibold hover:bg-white/25 transition border border-white/20">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3.609 1.814L13.792 12 3.61 22.186a.996.996 0 01-.61-.92V2.734a1 1 0 01.609-.92zm10.89 10.893l2.302 2.302-10.937 6.333 8.635-8.635zm3.199-3.199l2.302 2.302a1 1 0 010 1.38l-2.302 2.302L15.396 13l2.302-2.492zM5.864 2.658L16.8 9.291l-2.302 2.302L5.864 2.658z"/></svg>
+          Download for Android
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ───────── FOOTER ───────── -->
+  <footer class="py-10 bg-gray-900 text-gray-400">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-md bg-brand flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+            </svg>
+          </div>
+          <span class="text-sm font-semibold text-gray-300">Brite Shopping</span>
+        </div>
+
+        <div class="flex items-center gap-6 text-sm">
+          <a href="/privacy" class="hover:text-white transition">Privacy Policy</a>
+          <span class="text-gray-600">&bull;</span>
+          <span>&copy; {{ year }} Brite Shopping</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ───────── MOBILE MENU JS ───────── -->
+  <script>
+    document.getElementById('menu-btn').addEventListener('click', function () {
+      document.getElementById('mobile-menu').classList.toggle('hidden');
+    });
+    // Close mobile menu on link click
+    document.querySelectorAll('#mobile-menu a').forEach(function (link) {
+      link.addEventListener('click', function () {
+        document.getElementById('mobile-menu').classList.add('hidden');
+      });
+    });
+    // Smooth scroll for anchor links
+    document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+      anchor.addEventListener('click', function (e) {
+        var target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
